@@ -71,29 +71,73 @@ def splitImage(imageData, outsideWidth=32):
         leftside.append(imageTemp)
 
     # overlapping for check
-    assert psnr(upside[0], leftside[-1])
-    assert psnr(rightside[0], upside[-1])
-    assert psnr(bottomside[0], rightside[-1])
-    assert psnr(leftside[0], bottomside[-1])
+    assert psnr(upside[0], leftside[-1]) == 100
+    assert psnr(rightside[0], upside[-1]) == 100
+    assert psnr(bottomside[0], rightside[-1]) == 100
+    assert psnr(leftside[0], bottomside[-1]) == 100
 
-    return insidePart, np.array([leftside, upside, rightside, bottomside])
+    return insidePart, np.array([upside, rightside, bottomside, leftside])
 
 
 def mergeImage(insidePart, outsidePart):
+    assert psnr(outsidePart[0][0], outsidePart[3][-1]) == 100
+    assert psnr(outsidePart[1][0], outsidePart[0][-1]) == 100
+    assert psnr(outsidePart[2][0], outsidePart[1][-1]) == 100
+    assert psnr(outsidePart[3][0], outsidePart[2][-1]) == 100
     imageSize = (insidePart.shape[0] + 2*outsidePart.shape[2],
                  insidePart.shape[1] + 2*outsidePart.shape[3])
-    print(imageSize)
-    mergedImage = Image.fromarray(insidePart)
+    # print(imageSize)
+    imageData = np.zeros(shape=imageSize, dtype=np.uint8)
+    imageData[outsidePart.shape[2]:insidePart.shape[0] +
+              outsidePart.shape[2], outsidePart.shape[3]:insidePart.shape[1] + outsidePart.shape[3]] = insidePart
+
+    for i, val in enumerate(outsidePart[0]):
+        # upside
+        imageData[0:val.shape[0], i*val.shape[1]:(i+1)*val.shape[1]] = val
+        imageData[-val.shape[0]:, i*val.shape[1]                  :(i+1)*val.shape[1]] = outsidePart[2][-(i+1)]
+    # bottomside
+    for i, val in enumerate(outsidePart[1]):
+        # rightside
+        imageData[i*val.shape[0]:(i+1)*val.shape[0], -val.shape[1]:] = val
+        # leftside
+        imageData[i*val.shape[0]:(i+1)*val.shape[0],
+                  :val.shape[1]] = outsidePart[3][-(i+1)]
+    mergedImage = Image.fromarray(imageData)
+    # print(mergedImage.mode)
+    # mergedImage.show()
     mergedImage.save("merged.png")
-    return mergedImage
+    return imageData
 
 
 def imageHash(imageData):
-    h = hashlib.new('sha256')
+    h = hashlib.sha256()
     for i in imageData:
         for j in i:
             h.update(j // 2)
-    return h.hexdigest()
+    return h.digest()
+
+
+def makeFragileWatermarkPayload(imageData):
+    fragileWatermarkPayload = imageHash(imageData)
+    fragileWatermarkPayloadBitString = []
+    for i in fragileWatermarkPayload:
+        fragileWatermarkPayloadBitString.append("{0:08b}".format(i))
+    return ''.join(fragileWatermarkPayloadBitString)
+
+
+def embedFragileWatermark(imageData):
+    watermarkedImageData = np.zeros(imageData.shape)
+    fragileWatermarkPayload = makeFragileWatermarkPayload(imageData)
+    print(fragileWatermarkPayload)
+    counter = 0
+    for y, i in enumerate(imageData):
+        for x, j in enumerate(i):
+            p = j
+            p = (p & 0b11111110) | int(fragileWatermarkPayload[counter])
+            watermarkedImageData[y, x] = p
+            counter = (counter + 1) % len(fragileWatermarkPayload)
+    print(psnr(imageData, watermarkedImageData))
+    return watermarkedImageData
 
 
 # print(psnr(imageTestA, imageTestB))
@@ -103,7 +147,9 @@ imageData = readImage("original.png")
 # imageHashDigest = imageHash(imageData)
 # print(imageHashDigest)
 
-imageDataInside, imageDataOutside = splitImage(imageData, 32)
+insideImageData, outsideImageData = splitImage(imageData, 32)
 # print(imageDataOutside.shape)
 
-mergedImageData = mergeImage(imageDataInside, imageDataOutside)
+watermarkedInsideImageData = embedFragileWatermark(insideImageData)
+
+mergedImageData = mergeImage(insideImageData, outsideImageData)
