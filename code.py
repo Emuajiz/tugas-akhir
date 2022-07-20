@@ -110,6 +110,18 @@ def mergeImage(insidePart, outsidePart):
     mergedImage.save("merged.png")
     return imageData
 
+# explicit function to normalize array
+
+
+def normalize(arr, t_min, t_max):
+    norm_arr = []
+    diff = t_max - t_min
+    diff_arr = max(arr) - min(arr)
+    for i in arr:
+        temp = (((i - min(arr))*diff)/diff_arr) + t_min
+        norm_arr.append(temp)
+    return norm_arr
+
 
 def imageHash(imageData):
     h = hashlib.sha256()
@@ -161,7 +173,6 @@ def extractFragileWatermark(imageData):
 
 def embedRobustWatermark(imageData, watermarkData, alpha=1):
     center = (int(imageData.shape[0] / 2) + 1, int(imageData.shape[1] / 2) + 1)
-    watermarkData = "10011101"
     # watermarkData = watermarkData.flatten()
     # watermarkData = watermarkData / np.max(watermarkData)
     vectorLength = len(watermarkData)
@@ -171,10 +182,12 @@ def embedRobustWatermark(imageData, watermarkData, alpha=1):
     def y(t): return center[1] + int(min(imageData.shape) / 4 *
                                      math.sin(t * 2 * math.pi / vectorLength))
     indices = [(x(t), y(t)) for t in range(vectorLength)]
+    # print(indices)
     imageFourier = np.fft.fftshift(np.fft.fft2(imageData))
     mag = np.abs(imageFourier)
     phase = np.angle(imageFourier)
     for i, val in enumerate(indices):
+        # print(val)
         # print(alpha)
         # print("bef:")
         # print(mag[val[0], val[1]])
@@ -186,14 +199,42 @@ def embedRobustWatermark(imageData, watermarkData, alpha=1):
     watermarkedImageData = np.round(np.abs(np.fft.ifft2(
         np.fft.ifftshift(imageFourier)))).astype(np.uint8)
 
-    print(psnr(imageData, watermarkedImageData))
-    Image.fromarray(watermarkedImageData).show()
-    Image.fromarray(imageData).show()
+    # print(psnr(imageData, watermarkedImageData))
+    # Image.fromarray(watermarkedImageData).show()
+    # Image.fromarray(imageData).show()
     return watermarkedImageData
 
 
 def extractRobustWatermark(imageData, originalImageData, watermarkData, alpha=1):
-    extractedWatermarkData = np.zeros(watermarkData.shape, dtype=np.uint8)
+    center = (int(imageData.shape[0] / 2) + 1, int(imageData.shape[1] / 2) + 1)
+    # watermarkData = watermarkData.flatten()
+    # watermarkData = watermarkData / np.max(watermarkData)
+    vectorLength = len(watermarkData)
+
+    def x(t): return center[0] + int(min(imageData.shape) / 4 *
+                                     math.cos(t * 2 * math.pi / vectorLength))
+
+    def y(t): return center[1] + int(min(imageData.shape) / 4 *
+                                     math.sin(t * 2 * math.pi / vectorLength))
+    indices = [(x(t), y(t)) for t in range(vectorLength)]
+    # print(indices)
+    imageFourier = np.fft.fftshift(np.fft.fft2(imageData))
+    originalImageFourier = np.fft.fftshift(np.fft.fft2(originalImageData))
+    mag = np.abs(imageFourier)
+    originalMag = np.abs(originalImageFourier)
+    extractedWatermarkData = []
+    for i, val in enumerate(indices):
+        # print(val)
+        # print(mag[val[0], val[1]])
+        # print(originalMag[val[0], val[1]])
+        tmp = (mag[val[0], val[1]]/originalMag[val[0], val[1]] - 1) / alpha
+        extractedWatermarkData.append(tmp)
+        # print(tmp)
+        # print(round(tmp))
+    # print(extractedWatermarkData)
+    # norm = normalize(extractedWatermarkData, 0, 1)
+    # print(norm)
+    # print(np.round(norm))
     return extractedWatermarkData
 
 
@@ -206,19 +247,22 @@ robustWatermarkData = readImage("fragileWatermark.png")
 # print(imageHashDigest)
 
 insideImageData, outsideImageData = splitImage(imageData, 32)
+insideImageData, outsideImageData = splitImage(imageData, 64)
 # print(outsideImageData.shape)
 
 # watermarkedInsideImageData = embedFragileWatermark(insideImageData)
 # extractedWatermark = extractFragileWatermark(watermarkedInsideImageData)
 
-
+watermark = "1011001111110000"
+# print(len(watermark))
 watermarkedOutside = embedRobustWatermark(
-    outsideImageData[0][0], robustWatermarkData, 50)
+    outsideImageData[0][0], watermark, 50)
 # for i in range(0, 100, 10):
 #     print(i)
 #     watermarkedOutside = embedRobustWatermark(
-#         outsideImageData[0][0], robustWatermarkData, i)
-# extractedWatermark = extractRobustWatermark(
-#     watermarkedOutside, outsideImageData[0][0], robustWatermarkData, 1)
+#         outsideImageData[0][0], watermark, i)
+extractedWatermark = extractRobustWatermark(
+    watermarkedOutside, outsideImageData[0][0], watermark, 50)
+# print(extractedWatermark)
 
 mergedImageData = mergeImage(insideImageData, outsideImageData)
