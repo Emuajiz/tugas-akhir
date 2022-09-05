@@ -291,9 +291,12 @@ def processRobustWatermark(imageDataArray, password, embedFactor = 10):
     return np.array([upsideDataArray, rightsideDataArray, bottomsideDataArray, leftsideDataArray])
 
 imageData = readImage("original.png")
-imageData2 = readImage("original2.png")
-insideImageData, outsideImageData = splitImage(imageData, 64)
-watermarkedOutsideImageData = processRobustWatermark(outsideImageData, "thor", 20)
+# imageData2 = readImage("original2.png")
+insideImageData, outsideImageData = splitImage(imageData, 32)
+watermarkedOutsideImageData = processRobustWatermark(outsideImageData, "thor", 1)
 watermarkedInsideImageData = embedFragileWatermark(insideImageData)
 
 mergedImageData = mergeImage(watermarkedInsideImageData, watermarkedOutsideImageData)
+
+Image.fromarray(imageData).show()
+Image.fromarray(mergedImageData).show()
