@@ -86,7 +86,7 @@ def mergeImage(insidePart, outsidePart):
         # upside
         imageData[0:val.shape[0], i*val.shape[1]:(i+1)*val.shape[1]] = val
         # bottomside
-        imageData[-val.shape[0]:, i*val.shape[1]:(i+1)*val.shape[1]] = outsidePart[2][-(i+1)]
+        imageData[-val.shape[0]:, i*val.shape[1]                  :(i+1)*val.shape[1]] = outsidePart[2][-(i+1)]
 
     for i, val in enumerate(outsidePart[1]):
         # rightside
@@ -155,7 +155,7 @@ def extractFragileWatermark(imageData):
                 fragileWatermark[y, x] = 0
             counter += 1
             counter %= len(fragileWatermarkPayload)
-    Image.fromarray(fragileWatermark).show()
+    # Image.fromarray(fragileWatermark).show()
     return fragileWatermark
 
 
@@ -233,7 +233,7 @@ def calculateWatermark(password, watermarkLength):
     return res
 
 
-def processRobustWatermark(imageDataArray, password, embedFactor = 10):
+def processEmbedRobustWatermark(imageDataArray, password, embedFactor=10):
     watermarkSize = calculateOutsideWatermarkSize(imageDataArray)
     watermarkData = calculateWatermark(password, watermarkSize)
     # print(watermarkData)
@@ -290,13 +290,34 @@ def processRobustWatermark(imageDataArray, password, embedFactor = 10):
 
     return np.array([upsideDataArray, rightsideDataArray, bottomsideDataArray, leftsideDataArray])
 
+def processExtractRobustWatermark(imageDataArray, originalImageDataArray, password, embedFactor=10):
+    assert imageDataArray.shape == originalImageDataArray.shape
+    watermarkSize = calculateOutsideWatermarkSize(imageDataArray)
+    watermarkData = calculateWatermark(password, watermarkSize)
+    return 'a'
+
 imageData = readImage("original.png")
 # imageData2 = readImage("original2.png")
+
+# embed watermark
 insideImageData, outsideImageData = splitImage(imageData, 32)
-watermarkedOutsideImageData = processRobustWatermark(outsideImageData, "thor", 1)
+watermarkedOutsideImageData = processEmbedRobustWatermark(
+    outsideImageData, "thor", 1)
 watermarkedInsideImageData = embedFragileWatermark(insideImageData)
+# watermark result
+mergedImageData = mergeImage(
+    watermarkedInsideImageData, watermarkedOutsideImageData)
+# preview watermark
+# Image.fromarray(imageData).show()
+# Image.fromarray(mergedImageData).show()
 
-mergedImageData = mergeImage(watermarkedInsideImageData, watermarkedOutsideImageData)
+# extract watermark
+insideWatermark, outsideWatermark = splitImage(mergedImageData, 32)
+# fragile
+extractedFragile = extractFragileWatermark(insideWatermark)
+# print(extractedFragile)
+print("is valid: ", end='')
+print(len(np.where(extractedFragile == 0)[0]) == 0 and len(
+    np.where(extractedFragile == 0)[1]) == 0)
 
-Image.fromarray(imageData).show()
-Image.fromarray(mergedImageData).show()
+processExtractRobustWatermark(outsideWatermark, outsideImageData, "thor", 1)
