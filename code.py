@@ -294,6 +294,11 @@ def processExtractRobustWatermark(imageDataArray, originalImageDataArray, passwo
     assert imageDataArray.shape == originalImageDataArray.shape
     watermarkSize = calculateOutsideWatermarkSize(imageDataArray)
     watermarkData = calculateWatermark(password, watermarkSize)
+    print(watermarkData)
+    print(stringToBit(watermarkData[0]))
+    extracted = extractRobustWatermark(imageDataArray[0][0], originalImageDataArray[0][0], stringToBit(watermarkData[0]), embedFactor)
+    print(extracted)
+    print(''.join(np.int8(np.round(normalize(extracted, 0, 1)))))
     return 'a'
 
 imageData = readImage("original.png")
@@ -302,7 +307,7 @@ imageData = readImage("original.png")
 # embed watermark
 insideImageData, outsideImageData = splitImage(imageData, 32)
 watermarkedOutsideImageData = processEmbedRobustWatermark(
-    outsideImageData, "thor", 1)
+    outsideImageData, "thor", 10)
 watermarkedInsideImageData = embedFragileWatermark(insideImageData)
 # watermark result
 mergedImageData = mergeImage(
@@ -320,4 +325,4 @@ print("is valid: ", end='')
 print(len(np.where(extractedFragile == 0)[0]) == 0 and len(
     np.where(extractedFragile == 0)[1]) == 0)
 
-processExtractRobustWatermark(outsideWatermark, outsideImageData, "thor", 1)
+processExtractRobustWatermark(outsideWatermark, outsideImageData, "thor", 10)
