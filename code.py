@@ -14,9 +14,19 @@ def stringToBit(text):
     return ''.join(binary)
 
 
+def charToBit(char):
+    assert len(char) == 1
+    binary = np.zeros(8, dtype=np.int8)
+    print(ord(char))
+    for i in range(8):
+        binary[7-i] = ord(char) % (2 ** i + 1)
+    print(binary)
+    return binary
+
+
 def psnr(A, B):
     mse = np.mean((A - B) ** 2)
-    if(mse == 0):
+    if (mse == 0):
         return 100
     max_pixel = 255.0
     psnr = 20 * math.log10(max_pixel / math.sqrt(mse))
@@ -86,7 +96,8 @@ def mergeImage(insidePart, outsidePart):
         # upside
         imageData[0:val.shape[0], i*val.shape[1]:(i+1)*val.shape[1]] = val
         # bottomside
-        imageData[-val.shape[0]:, i*val.shape[1]                  :(i+1)*val.shape[1]] = outsidePart[2][-(i+1)]
+        imageData[-val.shape[0]:, i*val.shape[1]
+            :(i+1)*val.shape[1]] = outsidePart[2][-(i+1)]
 
     for i, val in enumerate(outsidePart[1]):
         # rightside
@@ -149,7 +160,7 @@ def extractFragileWatermark(imageData):
     counter = 0
     for y, i in enumerate(imageData):
         for x, j in enumerate(i):
-            if(j % 2 == int(fragileWatermarkPayload[counter])):
+            if (j % 2 == int(fragileWatermarkPayload[counter])):
                 fragileWatermark[y, x] = 255
             else:
                 fragileWatermark[y, x] = 0
@@ -290,16 +301,36 @@ def processEmbedRobustWatermark(imageDataArray, password, embedFactor=10):
 
     return np.array([upsideDataArray, rightsideDataArray, bottomsideDataArray, leftsideDataArray])
 
+
+def checkBitRobustWatermark(extracted, original, threshold=0.5):
+    norm_extracted = normalize(extracted, 0, 1)
+    bit_extracted = np.where(np.array(norm_extracted) > threshold, 1, 0)
+    print(charToBit(original))
+
+    # print(np.subtract(bit_extracted, string))
+    return True
+
+
 def processExtractRobustWatermark(imageDataArray, originalImageDataArray, password, embedFactor=10):
     assert imageDataArray.shape == originalImageDataArray.shape
     watermarkSize = calculateOutsideWatermarkSize(imageDataArray)
     watermarkData = calculateWatermark(password, watermarkSize)
-    print(watermarkData)
-    print(stringToBit(watermarkData[0]))
-    extracted = extractRobustWatermark(imageDataArray[0][0], originalImageDataArray[0][0], stringToBit(watermarkData[0]), embedFactor)
-    print(extracted)
-    print(''.join(np.int8(np.round(normalize(extracted, 0, 1)))))
+
+    extracted = extractRobustWatermark(
+        imageDataArray[0][0], originalImageDataArray[0][0], stringToBit(watermarkData[0]), embedFactor)
+    # print(extracted)
+    print(checkBitRobustWatermark(extracted, watermarkData[0]))
+
+    counter = 0
+    # upside
+    # for i in range(imageDataArray[0].shape[0]):
+    #     extracted = extractRobustWatermark(
+    #         imageDataArray[0][i], originalImageDataArray[0][i], stringToBit(watermarkData[counter]), embedFactor)
+    #     print(checkBitRobustWatermark(extracted, watermarkData[counter]))
+    #     counter += 1
+
     return 'a'
+
 
 imageData = readImage("original.png")
 # imageData2 = readImage("original2.png")
