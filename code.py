@@ -18,9 +18,6 @@ def charToBit(char):
     assert len(char) == 1
     binary = np.zeros(8, dtype=np.int8)
     print(ord(char))
-    for i in range(8):
-        binary[7-i] = ord(char) % (2 ** i + 1)
-    print(binary)
     return binary
 
 
