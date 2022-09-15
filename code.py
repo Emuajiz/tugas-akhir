@@ -3,6 +3,7 @@ import hashlib
 import math
 import random
 import string
+from xmlrpc.client import Boolean
 from PIL import Image
 import numpy as np
 
@@ -17,8 +18,13 @@ def stringToBit(text):
 def charToBit(char):
     assert len(char) == 1
     binary = np.zeros(8, dtype=np.int8)
-    print(ord(char))
-    return binary
+    tmp = ord(char)
+    counter = 0
+    while (tmp):
+        binary[counter] = tmp % 2
+        tmp = tmp // 2
+        counter += 1
+    return np.flip(binary)
 
 
 def psnr(A, B):
@@ -93,8 +99,7 @@ def mergeImage(insidePart, outsidePart):
         # upside
         imageData[0:val.shape[0], i*val.shape[1]:(i+1)*val.shape[1]] = val
         # bottomside
-        imageData[-val.shape[0]:, i*val.shape[1]
-            :(i+1)*val.shape[1]] = outsidePart[2][-(i+1)]
+        imageData[-val.shape[0]:, i*val.shape[1]                  :(i+1)*val.shape[1]] = outsidePart[2][-(i+1)]
 
     for i, val in enumerate(outsidePart[1]):
         # rightside
@@ -302,9 +307,10 @@ def processEmbedRobustWatermark(imageDataArray, password, embedFactor=10):
 def checkBitRobustWatermark(extracted, original, threshold=0.5):
     norm_extracted = normalize(extracted, 0, 1)
     bit_extracted = np.where(np.array(norm_extracted) > threshold, 1, 0)
-    print(charToBit(original))
-
-    # print(np.subtract(bit_extracted, string))
+    tmp = charToBit(original)
+    for i in range(8):
+        if bit_extracted[i] != tmp[i]:
+            return False
     return True
 
 
@@ -315,18 +321,55 @@ def processExtractRobustWatermark(imageDataArray, originalImageDataArray, passwo
 
     extracted = extractRobustWatermark(
         imageDataArray[0][0], originalImageDataArray[0][0], stringToBit(watermarkData[0]), embedFactor)
-    # print(extracted)
-    print(checkBitRobustWatermark(extracted, watermarkData[0]))
+
+    watermarkCheck = np.ones(watermarkSize, dtype=Boolean)
 
     counter = 0
     # upside
-    # for i in range(imageDataArray[0].shape[0]):
-    #     extracted = extractRobustWatermark(
-    #         imageDataArray[0][i], originalImageDataArray[0][i], stringToBit(watermarkData[counter]), embedFactor)
-    #     print(checkBitRobustWatermark(extracted, watermarkData[counter]))
-    #     counter += 1
+    for i in range(imageDataArray[0].shape[0]):
+        extracted = extractRobustWatermark(
+            imageDataArray[0][i], originalImageDataArray[0][i], stringToBit(watermarkData[counter]), embedFactor)
+        tmp = checkBitRobustWatermark(
+            extracted, watermarkData[counter])
+        if tmp is False:
+            watermarkCheck[counter] = False
+        counter += 1
+    counter -= 1
 
-    return 'a'
+    # rightside
+    for i in range(imageDataArray[1].shape[0]):
+        extracted = extractRobustWatermark(
+            imageDataArray[1][i], originalImageDataArray[1][i], stringToBit(watermarkData[counter]), embedFactor)
+        tmp = checkBitRobustWatermark(
+            extracted, watermarkData[counter])
+        if tmp is False:
+            watermarkCheck[counter] = False
+        counter += 1
+    counter -= 1
+
+    # bottomside
+    for i in range(imageDataArray[2].shape[0]):
+        extracted = extractRobustWatermark(
+            imageDataArray[2][i], originalImageDataArray[2][i], stringToBit(watermarkData[counter]), embedFactor)
+        tmp = checkBitRobustWatermark(
+            extracted, watermarkData[counter])
+        if tmp is False:
+            watermarkCheck[counter] = False
+        counter += 1
+    counter -= 1
+
+    # leftside
+    for i in range(imageDataArray[3].shape[0]):
+        extracted = extractRobustWatermark(
+            imageDataArray[3][i], originalImageDataArray[3][i], stringToBit(watermarkData[counter % watermarkSize]), embedFactor)
+        watermarkCheck[counter % watermarkSize] = checkBitRobustWatermark(
+            extracted, watermarkData[counter % watermarkSize])
+        if tmp is False:
+            watermarkCheck[counter % watermarkSize] = False
+        counter += 1
+    counter -= 1
+
+    return watermarkCheck
 
 
 imageData = readImage("original.png")
@@ -349,8 +392,10 @@ insideWatermark, outsideWatermark = splitImage(mergedImageData, 32)
 # fragile
 extractedFragile = extractFragileWatermark(insideWatermark)
 # print(extractedFragile)
-print("is valid: ", end='')
+print("is fragile valid: ", end='')
 print(len(np.where(extractedFragile == 0)[0]) == 0 and len(
     np.where(extractedFragile == 0)[1]) == 0)
 
-processExtractRobustWatermark(outsideWatermark, outsideImageData, "thor", 10)
+robustCheckResult = processExtractRobustWatermark(outsideWatermark, outsideImageData, "thor", 10)
+print("is robust valid: ", end='')
+print(len(np.where(robustCheckResult == False)[0]) == 0)
