@@ -3,10 +3,9 @@ import hashlib
 import math
 import random
 import string
-from xmlrpc.client import Boolean
 from PIL import Image
 import numpy as np
-
+from skimage.util import random_noise
 
 def stringToBit(text):
     binary = []
@@ -322,7 +321,7 @@ def processExtractRobustWatermark(imageDataArray, originalImageDataArray, passwo
     extracted = extractRobustWatermark(
         imageDataArray[0][0], originalImageDataArray[0][0], stringToBit(watermarkData[0]), embedFactor)
 
-    watermarkCheck = np.ones(watermarkSize, dtype=Boolean)
+    watermarkCheck = np.ones(watermarkSize, dtype=np.int8)
 
     counter = 0
     # upside
@@ -383,7 +382,7 @@ watermarkedInsideImageData = embedFragileWatermark(insideImageData)
 # watermark result
 mergedImageData = mergeImage(
     watermarkedInsideImageData, watermarkedOutsideImageData)
-# preview watermark
+# # preview watermark
 # Image.fromarray(imageData).show()
 # Image.fromarray(mergedImageData).show()
 
@@ -399,3 +398,14 @@ print(len(np.where(extractedFragile == 0)[0]) == 0 and len(
 robustCheckResult = processExtractRobustWatermark(outsideWatermark, outsideImageData, "thor", 10)
 print("is robust valid: ", end='')
 print(len(np.where(robustCheckResult == False)[0]) == 0)
+
+# add noise
+Image.fromarray(imageData).show()
+# noise_img = random_noise(imageData, mode="gaussian")
+# noise_img = random_noise(imageData, mode="localvar")
+# noise_img = random_noise(imageData, mode="salt")
+# noise_img = random_noise(imageData, mode="pepper")
+# noise_img = random_noise(imageData, mode="s&p")
+noise_img = random_noise(imageData, mode="speckle")
+noise_img = (255*noise_img).astype(np.uint8)
+Image.fromarray(noise_img).show()
