@@ -5,7 +5,7 @@ import random
 import string
 from PIL import Image
 import numpy as np
-from skimage.util import random_noise
+import skimage
 
 def stringToBit(text):
     binary = []
@@ -400,12 +400,21 @@ print("is robust valid: ", end='')
 print(len(np.where(robustCheckResult == False)[0]) == 0)
 
 # add noise
-Image.fromarray(imageData).show()
+# Image.fromarray(imageData).show()
 # noise_img = random_noise(imageData, mode="gaussian")
 # noise_img = random_noise(imageData, mode="localvar")
 # noise_img = random_noise(imageData, mode="salt")
 # noise_img = random_noise(imageData, mode="pepper")
 # noise_img = random_noise(imageData, mode="s&p")
-noise_img = random_noise(imageData, mode="speckle")
-noise_img = (255*noise_img).astype(np.uint8)
-Image.fromarray(noise_img).show()
+# noise_img = skimage.util.random_noise(imageData, mode="speckle")
+# noise_img = (255*noise_img).astype(np.uint8)
+# Image.fromarray(noise_img).show()
+
+# blur
+Image.fromarray(imageData).show()
+sigma = 3.0
+# apply Gaussian blur, creating a new image
+blurred = skimage.filters.gaussian(
+    imageData, sigma=(sigma, sigma), truncate=3.5, channel_axis=2)
+blurred = (255*blurred).astype(np.uint8)
+Image.fromarray(blurred).show()
