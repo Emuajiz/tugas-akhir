@@ -44,7 +44,7 @@ def readImage(filename):
 
 
 def validateInsideImageData(insideImagedata):
-    # overlapping for check
+    """helper to validate inside image data after splitting using overlapping at image corner data"""
     if psnr(insideImagedata[0][0], insideImagedata[3][-1]) != 100:
         return False
     if psnr(insideImagedata[1][0], insideImagedata[0][-1]) != 100:
@@ -67,6 +67,13 @@ def validateInsideImageData(insideImagedata):
 
 
 def splitImage(imageData, outsideWidth, outsideHeight):
+    """
+    function to split image into inside part and outside part
+    example:
+    ```py
+    splitImage(data, 32, 32)
+    ```
+    """
     imageSize = imageData.shape
     print(imageSize)
     assert imageSize[0] % outsideHeight == 0
