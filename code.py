@@ -7,6 +7,7 @@ from PIL import Image
 import numpy as np
 import skimage
 
+
 def stringToBit(text):
     binary = []
     for i in text:
@@ -42,57 +43,77 @@ def readImage(filename):
     return np.array(image)
 
 
-def splitImage(imageData, outsideWidth=32):
-    imageSize = imageData.shape
-    # ensure image size is square
-    assert imageSize[0] == imageSize[1]
-    insidePart = imageData[outsideWidth:imageSize[1] -
-                           outsideWidth, outsideWidth:imageSize[0] - outsideWidth]
+def validateInsideImageData(insideImagedata):
+    # overlapping for check
+    if psnr(insideImagedata[0][0], insideImagedata[3][-1]) != 100:
+        return False
+    if psnr(insideImagedata[1][0], insideImagedata[0][-1]) != 100:
+        return False
+    if psnr(insideImagedata[2][0], insideImagedata[1][-1]) != 100:
+        return False
+    if psnr(insideImagedata[3][0], insideImagedata[2][-1]) != 100:
+        return False
+    if insideImagedata[0].shape[-2:] != insideImagedata[1].shape[-2:]:
+        return False
+    if insideImagedata[1].shape[-2:] != insideImagedata[2].shape[-2:]:
+        return False
+    if insideImagedata[2].shape[-2:] != insideImagedata[3].shape[-2:]:
+        return False
+    if insideImagedata[0].shape[0] != insideImagedata[2].shape[0]:
+        return False
+    if insideImagedata[1].shape[0] != insideImagedata[3].shape[0]:
+        return False
+    return True
 
-    leftside = []
-    upside = []
-    rightside = []
-    bottomside = []
-    for i in range(0, imageSize[1], outsideWidth):
+
+def splitImage(imageData, outsideWidth, outsideHeight):
+    imageSize = imageData.shape
+    print(imageSize)
+    assert imageSize[0] % outsideHeight == 0
+    assert imageSize[1] % outsideWidth == 0
+
+    insidePart = imageData[outsideHeight:imageSize[0] -
+                           outsideHeight, outsideWidth:imageSize[1] - outsideWidth]
+
+    xTotalImagePart = imageSize[1] // outsideWidth
+    yTotalImagePart = imageSize[0] // outsideHeight
+    upside = np.zeros((xTotalImagePart, outsideHeight, outsideWidth))
+    bottomside = np.zeros((xTotalImagePart, outsideHeight, outsideWidth))
+    rightside = np.zeros((yTotalImagePart, outsideHeight, outsideWidth))
+    leftside = np.zeros((yTotalImagePart, outsideHeight, outsideWidth))
+    for i, val in enumerate(range(0, imageSize[1], outsideWidth)):
         # upside
-        imageTemp = np.array(imageData[0:outsideWidth, i:i+outsideWidth])
-        upside.append(imageTemp)
+        upside[i] = np.array(imageData[0:outsideHeight, val:val+outsideWidth])
 
         # bottomside
-        imageTemp = np.array(
-            imageData[imageSize[0] - outsideWidth:imageSize[0], imageSize[1] - i - outsideWidth:imageSize[1] - i])
-        bottomside.append(imageTemp)
+        bottomside[i] = np.array(imageData[imageSize[0] - outsideHeight:imageSize[0],
+                                 imageSize[1] - val - outsideWidth:imageSize[1] - val])
 
-    for i in range(0, imageSize[0], outsideWidth):
+    for i, val in enumerate(range(0, imageSize[0], outsideHeight)):
         # rightside
-        imageTemp = np.array(
-            imageData[i:i+outsideWidth, imageSize[1] - outsideWidth:imageSize[1]])
-        rightside.append(imageTemp)
+        rightside[i] = np.array(
+            imageData[val:val+outsideHeight, imageSize[1] - outsideWidth:imageSize[1]])
 
         # leftside
-        imageTemp = np.array(
-            imageData[imageSize[0] - i - outsideWidth:imageSize[0] - i, 0:outsideWidth])
-        leftside.append(imageTemp)
+        leftside[i] = np.array(
+            imageData[imageSize[0] - val - outsideHeight:imageSize[0] - val, 0:outsideWidth])
 
     # overlapping for check
-    assert psnr(upside[0], leftside[-1]) == 100
-    assert psnr(rightside[0], upside[-1]) == 100
-    assert psnr(bottomside[0], rightside[-1]) == 100
-    assert psnr(leftside[0], bottomside[-1]) == 100
+    assert validateInsideImageData(
+        [upside, rightside, bottomside, leftside]) == True
 
-    return insidePart, np.array([upside, rightside, bottomside, leftside])
+    return insidePart, np.array([upside, rightside, bottomside, leftside], dtype=object)
 
 
 def mergeImage(insidePart, outsidePart):
-    assert psnr(outsidePart[0][0], outsidePart[3][-1]) == 100
-    assert psnr(outsidePart[1][0], outsidePart[0][-1]) == 100
-    assert psnr(outsidePart[2][0], outsidePart[1][-1]) == 100
-    assert psnr(outsidePart[3][0], outsidePart[2][-1]) == 100
-    imageSize = (insidePart.shape[0] + 2*outsidePart.shape[2],
-                 insidePart.shape[1] + 2*outsidePart.shape[3])
+    assert validateInsideImageData(outsidePart) == True
+
+    imageSize = (insidePart.shape[0] + 2*outsidePart[0].shape[1],
+                 insidePart.shape[1] + 2*outsidePart[0].shape[2])
+    print(imageSize)
     imageData = np.zeros(shape=imageSize, dtype=np.uint8)
-    imageData[outsidePart.shape[2]:insidePart.shape[0] +
-              outsidePart.shape[2], outsidePart.shape[3]:insidePart.shape[1] + outsidePart.shape[3]] = insidePart
+    imageData[outsidePart[0].shape[1]:insidePart.shape[0] +
+              outsidePart[0].shape[1], outsidePart[0].shape[2]:insidePart.shape[1] + outsidePart[0].shape[2]] = insidePart
 
     for i, val in enumerate(outsidePart[0]):
         # upside
@@ -106,14 +127,11 @@ def mergeImage(insidePart, outsidePart):
         # leftside
         imageData[i*val.shape[0]:(i+1)*val.shape[0],
                   :val.shape[1]] = outsidePart[3][-(i+1)]
-    mergedImage = Image.fromarray(imageData)
-    mergedImage.save("merged.png")
     return imageData
-
-# explicit function to normalize array
 
 
 def normalize(arr, t_min, t_max):
+    "function to normalize array"
     norm_arr = []
     diff = t_max - t_min
     diff_arr = max(arr) - min(arr)
@@ -203,6 +221,7 @@ def calculateWatermarkPositionDouble(vectorLength, imageShape):
 
 
 def embedRobustWatermark(imageData, watermarkData, alpha=1):
+    # faktor pengali alpha
     vectorLength = len(watermarkData)
     indices = calculateWatermarkPosition(vectorLength, imageData.shape)
     imageFourier = np.fft.fftshift(np.fft.fft2(imageData))
@@ -239,7 +258,10 @@ def calculateOutsideWatermarkSize(imageData):
 
 
 def calculateWatermark(password, watermarkLength):
+    # proses seeding
     random.seed(password + str(watermarkLength), version=2)
+    # proses menghasilkan string random
+    # Mersenne Twister
     res = ''.join(random.choices(string.ascii_letters +
                   string.digits, k=watermarkLength))
     return res
@@ -248,8 +270,7 @@ def calculateWatermark(password, watermarkLength):
 def processEmbedRobustWatermark(imageDataArray, password, embedFactor=10):
     watermarkSize = calculateOutsideWatermarkSize(imageDataArray)
     watermarkData = calculateWatermark(password, watermarkSize)
-    # print(watermarkData)
-    # print(len(watermarkData))
+
     counter = 0
     # upside
     upsideDataArray = np.zeros(imageDataArray[0].shape)
@@ -371,33 +392,46 @@ def processExtractRobustWatermark(imageDataArray, originalImageDataArray, passwo
     return watermarkCheck
 
 
-imageData = readImage("original.png")
-# imageData2 = readImage("original2.png")
+def multipleWatermark(filename, password):
+    imageData = readImage(filename)
 
-# embed watermark
-insideImageData, outsideImageData = splitImage(imageData, 32)
-watermarkedOutsideImageData = processEmbedRobustWatermark(
-    outsideImageData, "thor", 10)
-watermarkedInsideImageData = embedFragileWatermark(insideImageData)
-# watermark result
-mergedImageData = mergeImage(
-    watermarkedInsideImageData, watermarkedOutsideImageData)
-# # preview watermark
-# Image.fromarray(imageData).show()
-# Image.fromarray(mergedImageData).show()
+    # embed watermark
+    insideImageData, outsideImageData = splitImage(imageData, 32)
+    watermarkedOutsideImageData = processEmbedRobustWatermark(
+        outsideImageData, password, 10)
+    watermarkedInsideImageData = embedFragileWatermark(insideImageData)
+    # watermark result
+    mergedImageData = mergeImage(
+        watermarkedInsideImageData, watermarkedOutsideImageData)
+    # preview watermark
+    Image.fromarray(imageData).show()
+    Image.fromarray(mergedImageData).show()
 
-# extract watermark
-insideWatermark, outsideWatermark = splitImage(mergedImageData, 32)
-# fragile
-extractedFragile = extractFragileWatermark(insideWatermark)
-# print(extractedFragile)
-print("is fragile valid: ", end='')
-print(len(np.where(extractedFragile == 0)[0]) == 0 and len(
-    np.where(extractedFragile == 0)[1]) == 0)
+    # extract watermark
+    insideWatermark, outsideWatermark = splitImage(mergedImageData, 32)
+    # fragile
+    extractedFragile = extractFragileWatermark(insideWatermark)
+    # print(extractedFragile)
+    print("is fragile valid: ", end='')
+    print(len(np.where(extractedFragile == 0)[0]) == 0 and len(
+        np.where(extractedFragile == 0)[1]) == 0)
 
-robustCheckResult = processExtractRobustWatermark(outsideWatermark, outsideImageData, "thor", 10)
-print("is robust valid: ", end='')
-print(len(np.where(robustCheckResult == False)[0]) == 0)
+    robustCheckResult = processExtractRobustWatermark(
+        outsideWatermark, outsideImageData, password, 10)
+    print("is robust valid: ", end='')
+    print(len(np.where(robustCheckResult == False)[0]) == 0)
+
+
+def splitThenMergeShouldReturnSameImage(filename):
+    imageData = readImage(filename)
+    insideImageData, outsideImageData = splitImage(imageData, 64, 16)
+    merged = mergeImage(insideImageData, outsideImageData)
+    return psnr(imageData, merged) == 100
+
+
+assert splitThenMergeShouldReturnSameImage("original.png") == True
+
+# multipleWatermark("original.png", "thor")
 
 # add noise
 # Image.fromarray(imageData).show()
@@ -410,11 +444,11 @@ print(len(np.where(robustCheckResult == False)[0]) == 0)
 # noise_img = (255*noise_img).astype(np.uint8)
 # Image.fromarray(noise_img).show()
 
-# blur
-Image.fromarray(imageData).show()
-sigma = 3.0
-# apply Gaussian blur, creating a new image
-blurred = skimage.filters.gaussian(
-    imageData, sigma=(sigma, sigma), truncate=3.5, channel_axis=2)
-blurred = (255*blurred).astype(np.uint8)
-Image.fromarray(blurred).show()
+# # blur
+# Image.fromarray(imageData).show()
+# sigma = 3.0
+# # apply Gaussian blur, creating a new image
+# blurred = skimage.filters.gaussian(
+#     imageData, sigma=(sigma, sigma), truncate=3.5, channel_axis=2)
+# blurred = (255*blurred).astype(np.uint8)
+# Image.fromarray(blurred).show()
