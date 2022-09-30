@@ -389,10 +389,9 @@ def multipleWatermark(filename, password, outsideImageSize, show=False, save=Fal
 
     # embed watermark
     insideImageData, outsideImageData = splitImage(imageData, outsideImageSize)
-    print(outsideImageData[0][0].shape)
+    print("log main")
+    print(outsideImageData[0].shape)
     print(outsideImageData[0][0])
-    Image.fromarray(imageData).show()
-    Image.fromarray(insideImageData).show()
     Image.fromarray(outsideImageData[0][0]).show()
     exit()
     watermarkedOutsideImageData = processEmbedRobustWatermark(
@@ -426,8 +425,12 @@ def multipleWatermark(filename, password, outsideImageSize, show=False, save=Fal
 
 def splitThenMergeShouldReturnSameImage(filename):
     imageData = readImage(filename)
-    insideImageData, outsideImageData = splitImage(imageData, (64, 16))
+    insideImageData, outsideImageData = splitImage(imageData, (32, 32))
     merged = mergeImage(insideImageData, outsideImageData)
+    print("log test")
+    print(outsideImageData[0].shape)
+    print(outsideImageData[0][0])
+    Image.fromarray(outsideImageData[0][0]).show()
     return psnr(imageData, merged) == 100
 
 
