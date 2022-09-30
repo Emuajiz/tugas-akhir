@@ -66,16 +66,17 @@ def validateInsideImageData(insideImagedata):
     return True
 
 
-def splitImage(imageData, outsideWidth, outsideHeight):
+def splitImage(imageData, outsideImageSize):
     """
     function to split image into inside part and outside part
     example:
     ```py
-    splitImage(data, 32, 32)
+    splitImage(data, (32, 32))
     ```
     """
     imageSize = imageData.shape
-    print(imageSize)
+    outsideHeight = outsideImageSize[0]
+    outsideWidth = outsideImageSize[1]
     assert imageSize[0] % outsideHeight == 0
     assert imageSize[1] % outsideWidth == 0
 
@@ -84,10 +85,10 @@ def splitImage(imageData, outsideWidth, outsideHeight):
 
     xTotalImagePart = imageSize[1] // outsideWidth
     yTotalImagePart = imageSize[0] // outsideHeight
-    upside = np.zeros((xTotalImagePart, outsideHeight, outsideWidth))
-    bottomside = np.zeros((xTotalImagePart, outsideHeight, outsideWidth))
-    rightside = np.zeros((yTotalImagePart, outsideHeight, outsideWidth))
-    leftside = np.zeros((yTotalImagePart, outsideHeight, outsideWidth))
+    upside = np.zeros((xTotalImagePart, outsideHeight, outsideWidth), dtype=np.uint8)
+    bottomside = np.zeros((xTotalImagePart, outsideHeight, outsideWidth), dtype=np.uint8)
+    rightside = np.zeros((yTotalImagePart, outsideHeight, outsideWidth), dtype=np.uint8)
+    leftside = np.zeros((yTotalImagePart, outsideHeight, outsideWidth), dtype=np.uint8)
     for i, val in enumerate(range(0, imageSize[1], outsideWidth)):
         # upside
         upside[i] = np.array(imageData[0:outsideHeight, val:val+outsideWidth])
@@ -117,7 +118,6 @@ def mergeImage(insidePart, outsidePart):
 
     imageSize = (insidePart.shape[0] + 2*outsidePart[0].shape[1],
                  insidePart.shape[1] + 2*outsidePart[0].shape[2])
-    print(imageSize)
     imageData = np.zeros(shape=imageSize, dtype=np.uint8)
     imageData[outsidePart[0].shape[1]:insidePart.shape[0] +
               outsidePart[0].shape[1], outsidePart[0].shape[2]:insidePart.shape[1] + outsidePart[0].shape[2]] = insidePart
@@ -126,7 +126,7 @@ def mergeImage(insidePart, outsidePart):
         # upside
         imageData[0:val.shape[0], i*val.shape[1]:(i+1)*val.shape[1]] = val
         # bottomside
-        imageData[-val.shape[0]:, i*val.shape[1]                  :(i+1)*val.shape[1]] = outsidePart[2][-(i+1)]
+        imageData[-val.shape[0]:, i*val.shape[1]:(i+1)*val.shape[1]] = outsidePart[2][-(i+1)]
 
     for i, val in enumerate(outsidePart[1]):
         # rightside
@@ -196,38 +196,23 @@ def extractFragileWatermark(imageData):
     return fragileWatermark
 
 
-def calculateWatermarkPosition(vectorLength, imageShape):
-    center = (int(imageShape[0] / 2) + 1, int(imageShape[1] / 2) + 1)
+def calculateWatermarkPosition(vectorLength, imageShape, radius=-1):
+    center = imageShape[0] // 2 + 1, imageShape[1] // 2 + 1
 
-    def x(t): return center[0] + int(min(imageShape) / 4 *
+    if radius == -1:
+        radius = min(imageShape) // 4
+
+    def x(t): return center[0] + int(radius *
                                      math.cos(t * 2 * math.pi / vectorLength))
 
-    def y(t): return center[1] + int(min(imageShape) / 4 *
+    def y(t): return center[1] + int(radius *
                                      math.sin(t * 2 * math.pi / vectorLength))
 
     indices = [(x(t), y(t)) for t in range(vectorLength)]
     return indices
 
 
-def calculateWatermarkPositionDouble(vectorLength, imageShape):
-    center = (int(imageShape[0] / 2) + 1, int(imageShape[1] / 2) + 1)
-
-    def x(t): return center[0] + int(min(imageShape) / 4 *
-                                     math.cos(t * 2 * math.pi / vectorLength))
-
-    def y(t): return center[1] + int(min(imageShape) / 4 *
-                                     math.sin(t * 2 * math.pi / vectorLength))
-
-    def x2(t): return center[0] + int(min(imageShape) / 3 *
-                                      math.cos(t * 2 * math.pi / vectorLength))
-    def y2(t): return center[1] + int(min(imageShape) / 3 *
-                                      math.sin(t * 2 * math.pi / vectorLength))
-    indices = [(x(t), y(t)) for t in range(vectorLength // 2)] + \
-        [(x2(t), y2(t)) for t in range(vectorLength // 2)]
-    return indices
-
-
-def embedRobustWatermark(imageData, watermarkData, alpha=1):
+def embedRobustWatermark(imageData, watermarkData, alpha=1.0):
     # faktor pengali alpha
     vectorLength = len(watermarkData)
     indices = calculateWatermarkPosition(vectorLength, imageData.shape)
@@ -235,7 +220,7 @@ def embedRobustWatermark(imageData, watermarkData, alpha=1):
     mag = np.abs(imageFourier)
     phase = np.angle(imageFourier)
     for i, val in enumerate(indices):
-        tmp = mag[val[0], val[1]] * (1 + alpha * int(watermarkData[i]))
+        tmp = mag[val[0], val[1]] + alpha * watermarkData[i]
         fourierTmp = tmp * cmath.exp(1j * phase[val[0], val[1]])
         imageFourier[val[0], val[1]] = fourierTmp
     watermarkedImageData = np.round(np.abs(np.fft.ifft2(
@@ -243,7 +228,7 @@ def embedRobustWatermark(imageData, watermarkData, alpha=1):
     return watermarkedImageData
 
 
-def extractRobustWatermark(imageData, originalImageData, watermarkData, alpha=1):
+def extractRobustWatermark(imageData, originalImageData, watermarkData, alpha=1.0):
     vectorLength = len(watermarkData)
     indices = calculateWatermarkPosition(vectorLength, imageData.shape)
     imageFourier = np.fft.fftshift(np.fft.fft2(imageData))
@@ -252,7 +237,7 @@ def extractRobustWatermark(imageData, originalImageData, watermarkData, alpha=1)
     originalMag = np.abs(originalImageFourier)
     extractedWatermarkData = []
     for i, val in enumerate(indices):
-        tmp = (mag[val[0], val[1]]/originalMag[val[0], val[1]] - 1) / alpha
+        tmp = (mag[val[0], val[1]] - originalMag[val[0], val[1]]) / alpha
         extractedWatermarkData.append(tmp)
     return extractedWatermarkData
 
@@ -270,14 +255,15 @@ def calculateWatermark(password, watermarkLength):
     # proses menghasilkan string random
     # Mersenne Twister
     res = ''.join(random.choices(string.ascii_letters +
-                  string.digits, k=watermarkLength))
+                                 string.digits, k=watermarkLength))
     return res
 
 
 def processEmbedRobustWatermark(imageDataArray, password, embedFactor=10):
     watermarkSize = calculateOutsideWatermarkSize(imageDataArray)
     watermarkData = calculateWatermark(password, watermarkSize)
-
+    print(watermarkData)
+    # exit()
     counter = 0
     # upside
     upsideDataArray = np.zeros(imageDataArray[0].shape)
@@ -285,7 +271,7 @@ def processEmbedRobustWatermark(imageDataArray, password, embedFactor=10):
     for i in range(imageDataArray[0].shape[0]):
         # print(imageDataArray[0,i].shape)
         upsideDataArray[i] = embedRobustWatermark(
-            imageDataArray[0, i], stringToBit(watermarkData[counter]), embedFactor)
+            imageDataArray[0, i], charToBit(watermarkData[counter]), embedFactor)
         counter += 1
     counter -= 1
     # print(counter)
@@ -296,7 +282,7 @@ def processEmbedRobustWatermark(imageDataArray, password, embedFactor=10):
     for i in range(imageDataArray[1].shape[0]):
         # print(imageDataArray[0,i].shape)
         rightsideDataArray[i] = embedRobustWatermark(
-            imageDataArray[1, i], stringToBit(watermarkData[counter]), embedFactor)
+            imageDataArray[1, i], charToBit(watermarkData[counter]), embedFactor)
         counter += 1
     counter -= 1
     # print(counter)
@@ -307,7 +293,7 @@ def processEmbedRobustWatermark(imageDataArray, password, embedFactor=10):
     for i in range(imageDataArray[2].shape[0]):
         # print(imageDataArray[0,i].shape)
         bottomsideDataArray[i] = embedRobustWatermark(
-            imageDataArray[2, i], stringToBit(watermarkData[counter]), embedFactor)
+            imageDataArray[2, i], charToBit(watermarkData[counter]), embedFactor)
         counter += 1
     counter -= 1
     # print(counter)
@@ -318,7 +304,7 @@ def processEmbedRobustWatermark(imageDataArray, password, embedFactor=10):
     for i in range(imageDataArray[3].shape[0]):
         # print(imageDataArray[0,i].shape)
         leftsideDataArray[i] = embedRobustWatermark(
-            imageDataArray[3, i], stringToBit(watermarkData[counter % watermarkSize]), embedFactor)
+            imageDataArray[3, i], charToBit(watermarkData[counter % watermarkSize]), embedFactor)
         counter += 1
     counter -= 1
     # print(counter)
@@ -347,15 +333,14 @@ def processExtractRobustWatermark(imageDataArray, originalImageDataArray, passwo
     watermarkData = calculateWatermark(password, watermarkSize)
 
     extracted = extractRobustWatermark(
-        imageDataArray[0][0], originalImageDataArray[0][0], stringToBit(watermarkData[0]), embedFactor)
-
+        imageDataArray[0][0], originalImageDataArray[0][0], charToBit(watermarkData[0]), embedFactor)
     watermarkCheck = np.ones(watermarkSize, dtype=np.int8)
 
     counter = 0
     # upside
     for i in range(imageDataArray[0].shape[0]):
         extracted = extractRobustWatermark(
-            imageDataArray[0][i], originalImageDataArray[0][i], stringToBit(watermarkData[counter]), embedFactor)
+            imageDataArray[0][i], originalImageDataArray[0][i], charToBit(watermarkData[counter]), embedFactor)
         tmp = checkBitRobustWatermark(
             extracted, watermarkData[counter])
         if tmp is False:
@@ -366,7 +351,7 @@ def processExtractRobustWatermark(imageDataArray, originalImageDataArray, passwo
     # rightside
     for i in range(imageDataArray[1].shape[0]):
         extracted = extractRobustWatermark(
-            imageDataArray[1][i], originalImageDataArray[1][i], stringToBit(watermarkData[counter]), embedFactor)
+            imageDataArray[1][i], originalImageDataArray[1][i], charToBit(watermarkData[counter]), embedFactor)
         tmp = checkBitRobustWatermark(
             extracted, watermarkData[counter])
         if tmp is False:
@@ -377,7 +362,7 @@ def processExtractRobustWatermark(imageDataArray, originalImageDataArray, passwo
     # bottomside
     for i in range(imageDataArray[2].shape[0]):
         extracted = extractRobustWatermark(
-            imageDataArray[2][i], originalImageDataArray[2][i], stringToBit(watermarkData[counter]), embedFactor)
+            imageDataArray[2][i], originalImageDataArray[2][i], charToBit(watermarkData[counter]), embedFactor)
         tmp = checkBitRobustWatermark(
             extracted, watermarkData[counter])
         if tmp is False:
@@ -388,7 +373,7 @@ def processExtractRobustWatermark(imageDataArray, originalImageDataArray, passwo
     # leftside
     for i in range(imageDataArray[3].shape[0]):
         extracted = extractRobustWatermark(
-            imageDataArray[3][i], originalImageDataArray[3][i], stringToBit(watermarkData[counter % watermarkSize]), embedFactor)
+            imageDataArray[3][i], originalImageDataArray[3][i], charToBit(watermarkData[counter % watermarkSize]), embedFactor)
         watermarkCheck[counter % watermarkSize] = checkBitRobustWatermark(
             extracted, watermarkData[counter % watermarkSize])
         if tmp is False:
@@ -399,46 +384,56 @@ def processExtractRobustWatermark(imageDataArray, originalImageDataArray, passwo
     return watermarkCheck
 
 
-def multipleWatermark(filename, password):
+def multipleWatermark(filename, password, outsideImageSize, show=False, save=False):
     imageData = readImage(filename)
 
     # embed watermark
-    insideImageData, outsideImageData = splitImage(imageData, 32)
+    insideImageData, outsideImageData = splitImage(imageData, outsideImageSize)
+    print(outsideImageData[0][0].shape)
+    print(outsideImageData[0][0])
+    Image.fromarray(imageData).show()
+    Image.fromarray(insideImageData).show()
+    Image.fromarray(outsideImageData[0][0]).show()
+    exit()
     watermarkedOutsideImageData = processEmbedRobustWatermark(
-        outsideImageData, password, 10)
+        outsideImageData, password, 100)
     watermarkedInsideImageData = embedFragileWatermark(insideImageData)
     # watermark result
     mergedImageData = mergeImage(
         watermarkedInsideImageData, watermarkedOutsideImageData)
-    # preview watermark
-    Image.fromarray(imageData).show()
-    Image.fromarray(mergedImageData).show()
+
+    if show:
+        # preview watermark
+        Image.fromarray(imageData).show()
+        Image.fromarray(mergedImageData).show()
 
     # extract watermark
-    insideWatermark, outsideWatermark = splitImage(mergedImageData, 32)
+    insideWatermark, outsideWatermark = splitImage(
+        mergedImageData, outsideImageSize)
     # fragile
     extractedFragile = extractFragileWatermark(insideWatermark)
-    # print(extractedFragile)
     print("is fragile valid: ", end='')
     print(len(np.where(extractedFragile == 0)[0]) == 0 and len(
         np.where(extractedFragile == 0)[1]) == 0)
+    print(extractedFragile)
 
     robustCheckResult = processExtractRobustWatermark(
-        outsideWatermark, outsideImageData, password, 10)
+        outsideWatermark, outsideImageData, "password", 100)
+    print(robustCheckResult)
     print("is robust valid: ", end='')
     print(len(np.where(robustCheckResult == False)[0]) == 0)
 
 
 def splitThenMergeShouldReturnSameImage(filename):
     imageData = readImage(filename)
-    insideImageData, outsideImageData = splitImage(imageData, 64, 16)
+    insideImageData, outsideImageData = splitImage(imageData, (64, 16))
     merged = mergeImage(insideImageData, outsideImageData)
     return psnr(imageData, merged) == 100
 
 
 assert splitThenMergeShouldReturnSameImage("original.png") == True
 
-# multipleWatermark("original.png", "thor")
+multipleWatermark("original.png", "thor", (32, 32), False, False)
 
 # add noise
 # Image.fromarray(imageData).show()
