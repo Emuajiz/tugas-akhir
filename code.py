@@ -394,9 +394,8 @@ def processExtractRobustWatermark(imageDataArray, originalImageDataArray, passwo
     return np.average(watermarkCheck / 8)
 
 
-def multipleWatermark(filename, password, outsideImageSize, show=False, save=False, factor=10):
+def multipleWatermark(filename, password, outsideImageSize, show=False, save=False, factor=10, out=False):
     imageData = readImage(filename)
-
     # embed watermark
     insideImageData, outsideImageData = splitImage(imageData, outsideImageSize)
     watermarkedOutsideImageData = processEmbedRobustWatermark(
@@ -411,6 +410,12 @@ def multipleWatermark(filename, password, outsideImageSize, show=False, save=Fal
         Image.fromarray(imageData).show()
         Image.fromarray(mergedImageData).show()
 
+    if save:
+        Image.fromarray(mergedImageData).save(out if out else "out.png")
+    
+    return mergedImageData
+
+def extractMultipleWatermark():
     # extract watermark
     insideWatermark, outsideWatermark = splitImage(
         mergedImageData, outsideImageSize)
