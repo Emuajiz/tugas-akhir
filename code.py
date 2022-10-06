@@ -129,7 +129,7 @@ def mergeImage(insidePart, outsidePart):
         # upside
         imageData[0:val.shape[0], i*val.shape[1]:(i+1)*val.shape[1]] = val
         # bottomside
-        imageData[-val.shape[0]:, i*val.shape[1]:(i+1)*val.shape[1]] = outsidePart[2][-(i+1)]
+        imageData[-val.shape[0]:, i*val.shape[1]                  :(i+1)*val.shape[1]] = outsidePart[2][-(i+1)]
 
     for i, val in enumerate(outsidePart[1]):
         # rightside
@@ -167,35 +167,35 @@ def makeFragileWatermarkPayload(imageData):
         fragileWatermarkPayloadBitString.append("{0:08b}".format(i))
     return ''.join(fragileWatermarkPayloadBitString)
 
+def createEmbedOrder(imageShape, password=False):
+    order = [(i, j) for i in range(imageShape[0])
+             for j in range(imageShape[1])]
+    if password:
+        random.seed(password, version=2)
+        return random.sample(order, k=len(order))
+    return order
 
 def embedFragileWatermark(imageData):
     watermarkedImageData = np.zeros(imageData.shape, dtype=np.uint8)
     fragileWatermarkPayload = makeFragileWatermarkPayload(imageData)
-    counter = 0
-    for y, i in enumerate(imageData):
-        for x, j in enumerate(i):
-            p = j
-            p &= 0b11111110
-            p |= int(fragileWatermarkPayload[counter])
-            watermarkedImageData[y, x] = p
-            counter += 1
-            counter = counter % len(fragileWatermarkPayload)
+    order = createEmbedOrder(imageData.shape, "thor")
+    for i, val in enumerate(order):
+        p = imageData[val[0], val[1]]
+        p &= 0b11111110
+        p |= int(fragileWatermarkPayload[i % len(fragileWatermarkPayload)])
+        watermarkedImageData[val[0], val[1]] = p
     return watermarkedImageData
 
 
 def extractFragileWatermark(imageData):
     fragileWatermarkPayload = makeFragileWatermarkPayload(imageData)
     fragileWatermark = np.zeros(imageData.shape, dtype=np.uint8)
-    counter = 0
-    for y, i in enumerate(imageData):
-        for x, j in enumerate(i):
-            if (j % 2 == int(fragileWatermarkPayload[counter])):
-                fragileWatermark[y, x] = 255
-            else:
-                fragileWatermark[y, x] = 0
-            counter += 1
-            counter %= len(fragileWatermarkPayload)
-    # Image.fromarray(fragileWatermark).show()
+    order = createEmbedOrder(imageData.shape, "thor")
+    for i, val in enumerate(order):
+        if (imageData[val[0], val[1]] % 2 == int(fragileWatermarkPayload[i % len(fragileWatermarkPayload)])):
+            fragileWatermark[val[0], val[1]] = 1
+        else:
+            fragileWatermark[val[0], val[1]] = 0
     return fragileWatermark
 
 
@@ -219,7 +219,7 @@ def calculateWatermarkPosition(vectorLength, imageShape, radius=-1):
 
 def calculateForWatermark(magnitude, position):
     tmp = 0
-    magnitude = np.pad(magnitude, ((1,1),(1,1)))
+    magnitude = np.pad(magnitude, ((1, 1), (1, 1)))
     tmp2 = (position[0]+1, position[1]+1)
     for i in range(-1, 2, 1):
         for j in range(-1, 2, 1):
@@ -254,14 +254,13 @@ def extractRobustWatermark(imageData, originalImageData, watermarkData, alpha=1,
     originalImageFourier = np.fft.fftshift(np.fft.fft2(originalImageData))
     mag = np.abs(imageFourier)
     originalMag = np.abs(originalImageFourier)
-    extractedWatermarkData = []
+    extractedWatermarkData = np.zeros(len(watermarkData), dtype=np.float64)
     watermarkElement = np.zeros(len(watermarkData), dtype=np.float64)
     for i, val in enumerate(indices):
         watermarkElement[i] = calculateForWatermark(mag, val)
     for i, val in enumerate(indices):
-        tmp = (mag[val[0], val[1]] - originalMag[val[0], val[1]]) / \
+        extractedWatermarkData[i] = (mag[val[0], val[1]] - originalMag[val[0], val[1]]) / \
             (alpha * watermarkElement[i])
-        extractedWatermarkData.append(tmp)
     return extractedWatermarkData
 
 
@@ -384,8 +383,6 @@ def processExtractRobustWatermark(imageDataArray, originalImageDataArray, passwo
         counter += 1
     counter -= 1
 
-    print(watermarkCheck)
-
     return np.average(watermarkCheck)
 
 
@@ -420,7 +417,7 @@ def extractMultipleWatermark(imageData, originalImageData, password, outsideImag
     robustCheckResult = processExtractRobustWatermark(
         outsideWatermark, originalOutsideWatermark, password, factor, bitPerPart, radius)
 
-    print(extractedFragile)
+    print(np.average(extractedFragile))
     print(robustCheckResult)
 
 
