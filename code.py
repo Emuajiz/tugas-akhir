@@ -37,8 +37,6 @@ def psnr(A, B):
 
 def readImage(filename):
     image = Image.open(filename)
-    if image.mode != "L":
-        image = image.convert("L")
     return np.array(image)
 
 
@@ -227,7 +225,7 @@ def calculateForWatermark(magnitude, position):
     return tmp / 9
 
 
-def embedRobustWatermark(imageData, watermarkData, alpha=10, radius=-1):
+def embedRobustWatermark(imageData, watermarkData, alpha=1, radius=-1):
     # faktor pengali alpha
     vectorLength = len(watermarkData)
     indices = calculateWatermarkPosition(vectorLength, imageData.shape, radius)
@@ -430,10 +428,29 @@ def splitThenMergeShouldReturnSameImage(filename):
 
 assert splitThenMergeShouldReturnSameImage("original.png") == True
 
-imageData = readImage("original.png")
-watermarked = multipleWatermark(
-    imageData, "thor", (32, 32), 10, False, False, "watermarked.png", 8, 8)
-extractMultipleWatermark(watermarked, imageData, "thor", (32, 32), 10, 8, 8)
+outsideShape = (8, 8)
+factor = 2
+bitPerPart = 2
+radius = 2
+
+imageData = readImage("original2.png")
+imageForFragile = np.array(Image.fromarray(imageData).convert("YCbCr"))
+imageForRobust = np.array(Image.fromarray(imageData))
+
+# TODO
+# handle 3 channel image
+# enhance robust watermark
+
+# imageData = readImage("original.png")
+# watermarked = multipleWatermark(
+#     imageData, "thor", outsideShape, factor, False, False, "watermarked.png", bitPerPart, radius)
+    
+# noise_img = skimage.util.random_noise(watermarked, mode="gaussian")
+# noise_img = (255*noise_img).astype(np.uint8)
+# Image.fromarray(noise_img).show()
+# Image.fromarray(watermarked).show()
+# extractMultipleWatermark(noise_img, imageData, "thor", outsideShape, factor, bitPerPart, radius)
+# extractMultipleWatermark(watermarked, imageData, "thor", outsideShape, factor, bitPerPart, radius)
 
 # add noise
 # Image.fromarray(imageData).show()
