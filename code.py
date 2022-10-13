@@ -63,7 +63,7 @@ def validateInsideImageData(insideImagedata):
     return True
 
 
-def splitImage(imageData, outsideImageSize):
+def splitImage(imageData, outsideImageSize, mode):
     """
     function to split image into inside part and outside part
     example:
@@ -82,14 +82,15 @@ def splitImage(imageData, outsideImageSize):
 
     xTotalImagePart = imageSize[1] // outsideWidth
     yTotalImagePart = imageSize[0] // outsideHeight
-    upside = np.zeros((xTotalImagePart, outsideHeight,
-                      outsideWidth), dtype=np.uint8)
-    bottomside = np.zeros(
-        (xTotalImagePart, outsideHeight, outsideWidth), dtype=np.uint8)
-    rightside = np.zeros((yTotalImagePart, outsideHeight,
-                         outsideWidth), dtype=np.uint8)
-    leftside = np.zeros((yTotalImagePart, outsideHeight,
-                        outsideWidth), dtype=np.uint8)
+    xOutsideShape = (xTotalImagePart, outsideHeight, outsideWidth)
+    yOutsideShape = (yTotalImagePart, outsideHeight, outsideWidth)
+    if mode == "RGB":
+        xOutsideShape = (xTotalImagePart, outsideHeight, outsideWidth, 3)
+        yOutsideShape = (yTotalImagePart, outsideHeight, outsideWidth, 3)
+    upside = np.zeros(xOutsideShape, dtype=np.uint8)
+    bottomside = np.zeros(xOutsideShape, dtype=np.uint8)
+    rightside = np.zeros(yOutsideShape, dtype=np.uint8)
+    leftside = np.zeros(yOutsideShape, dtype=np.uint8)
     for i, val in enumerate(range(0, imageSize[1], outsideWidth)):
         # upside
         upside[i] = np.array(imageData[0:outsideHeight, val:val+outsideWidth])
@@ -127,7 +128,7 @@ def mergeImage(insidePart, outsidePart):
         # upside
         imageData[0:val.shape[0], i*val.shape[1]:(i+1)*val.shape[1]] = val
         # bottomside
-        imageData[-val.shape[0]:, i*val.shape[1]                  :(i+1)*val.shape[1]] = outsidePart[2][-(i+1)]
+        imageData[-val.shape[0]:, i*val.shape[1]:(i+1)*val.shape[1]] = outsidePart[2][-(i+1)]
 
     for i, val in enumerate(outsidePart[1]):
         # rightside
@@ -165,6 +166,7 @@ def makeFragileWatermarkPayload(imageData):
         fragileWatermarkPayloadBitString.append("{0:08b}".format(i))
     return ''.join(fragileWatermarkPayloadBitString)
 
+
 def createEmbedOrder(imageShape, password=False):
     order = [(i, j) for i in range(imageShape[0])
              for j in range(imageShape[1])]
@@ -172,6 +174,7 @@ def createEmbedOrder(imageShape, password=False):
         random.seed(password, version=2)
         return random.sample(order, k=len(order))
     return order
+
 
 def embedFragileWatermark(imageData):
     watermarkedImageData = np.zeros(imageData.shape, dtype=np.uint8)
@@ -385,8 +388,10 @@ def processExtractRobustWatermark(imageDataArray, originalImageDataArray, passwo
 
 
 def multipleWatermark(imageData, password, outsideImageSize=(32, 32), factor=10, show=False, save=False, out="out.png", bitPerPart=8, radius=-1):
+    mergedImageData = np.zeros(imageData.shape, dtype=np.uint8)
     # embed watermark
-    insideImageData, outsideImageData = splitImage(imageData, outsideImageSize)
+    insideImageData, outsideImageData = splitImage(
+        imageData, outsideImageSize, Image.fromarray(imageData).mode)
     watermarkedOutsideImageData = processEmbedRobustWatermark(
         outsideImageData, password, factor, bitPerPart, radius)
     watermarkedInsideImageData = embedFragileWatermark(insideImageData)
@@ -426,25 +431,22 @@ def splitThenMergeShouldReturnSameImage(filename):
     return psnr(imageData, merged) == 100
 
 
-assert splitThenMergeShouldReturnSameImage("original.png") == True
+# assert splitThenMergeShouldReturnSameImage("original.png") == True
 
 outsideShape = (8, 8)
 factor = 2
 bitPerPart = 2
 radius = 2
 
-imageData = readImage("original2.png")
-imageForFragile = np.array(Image.fromarray(imageData).convert("YCbCr"))
-imageForRobust = np.array(Image.fromarray(imageData))
-
 # TODO
 # handle 3 channel image
 # enhance robust watermark
 
 # imageData = readImage("original.png")
-# watermarked = multipleWatermark(
-#     imageData, "thor", outsideShape, factor, False, False, "watermarked.png", bitPerPart, radius)
-    
+imageData = readImage("original2.png")
+watermarked = multipleWatermark(
+    imageData, "thor", outsideShape, factor, False, False, "watermarked.png", bitPerPart, radius)
+
 # noise_img = skimage.util.random_noise(watermarked, mode="gaussian")
 # noise_img = (255*noise_img).astype(np.uint8)
 # Image.fromarray(noise_img).show()
