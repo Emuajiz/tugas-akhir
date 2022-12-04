@@ -2,6 +2,7 @@ import cmath
 import hashlib
 import math
 import random
+import time
 from PIL import Image
 import numpy as np
 import skimage
@@ -128,7 +129,8 @@ def mergeImage(insidePart, outsidePart):
         # upside
         imageData[0:val.shape[0], i*val.shape[1]:(i+1)*val.shape[1]] = val
         # bottomside
-        imageData[-val.shape[0]:, i*val.shape[1]:(i+1)*val.shape[1]] = outsidePart[2][-(i+1)]
+        imageData[-val.shape[0]:, i*val.shape[1]
+            :(i+1)*val.shape[1]] = outsidePart[2][-(i+1)]
 
     for i, val in enumerate(outsidePart[1]):
         # rightside
@@ -176,10 +178,11 @@ def createEmbedOrder(imageShape, password=False):
     return order
 
 
-def embedFragileWatermark(imageData):
+def embedFragileWatermark(imageData, password):
+    print(imageData.shape)
     watermarkedImageData = np.zeros(imageData.shape, dtype=np.uint8)
     fragileWatermarkPayload = makeFragileWatermarkPayload(imageData)
-    order = createEmbedOrder(imageData.shape, "thor")
+    order = createEmbedOrder(imageData.shape, password)
     for i, val in enumerate(order):
         p = imageData[val[0], val[1]]
         p &= 0b11111110
@@ -387,14 +390,48 @@ def processExtractRobustWatermark(imageDataArray, originalImageDataArray, passwo
     return np.average(watermarkCheck)
 
 
+def getYChannelFromRGB(imageData):
+    arr = np.array(Image.fromarray(imageData).convert("YCbCr"))
+    return arr[:, :, 0]
+
+
+def constructRGBFromY(rgbImageData, yImageData):
+    arr = np.array(Image.fromarray(imageData).convert("YCbCr"))
+    arr[:, :, 0] = yImageData
+    return np.array(Image.fromarray(imageData, mode="YCbCr").convert("RGB"))
+
+
 def multipleWatermark(imageData, password, outsideImageSize=(32, 32), factor=10, show=False, save=False, out="out.png", bitPerPart=8, radius=-1):
     mergedImageData = np.zeros(imageData.shape, dtype=np.uint8)
+    mode = Image.fromarray(imageData).mode
     # embed watermark
     insideImageData, outsideImageData = splitImage(
-        imageData, outsideImageSize, Image.fromarray(imageData).mode)
+        imageData, outsideImageSize, mode)
+    if mode == "RGB":
+        processedOutsideImageData = [
+            np.array([getYChannelFromRGB(outsideImageData[0][i])
+                      for i in range(outsideImageData[0].shape[0])]),
+            np.array([getYChannelFromRGB(outsideImageData[1][i])
+                      for i in range(outsideImageData[1].shape[0])]),
+            np.array([getYChannelFromRGB(outsideImageData[2][i])
+                      for i in range(outsideImageData[2].shape[0])]),
+            np.array([getYChannelFromRGB(outsideImageData[3][i])
+                      for i in range(outsideImageData[3].shape[0])]),
+        ]
+    else:
+        processedOutsideImageData = outsideImageData
     watermarkedOutsideImageData = processEmbedRobustWatermark(
-        outsideImageData, password, factor, bitPerPart, radius)
-    watermarkedInsideImageData = embedFragileWatermark(insideImageData)
+        processedOutsideImageData, password, factor, bitPerPart, radius)
+    if mode == "RGB":
+        start = time.time()
+        watermarkedInsideImageData = embedFragileWatermark(insideImageData[:,:,0], password)
+        watermarkedInsideImageData = embedFragileWatermark(insideImageData[:,:,1], password)
+        watermarkedInsideImageData = embedFragileWatermark(insideImageData[:,:,2], password)
+        end = time.time()
+        print(start, end)
+        exit()
+    else:
+        watermarkedInsideImageData = embedFragileWatermark(insideImageData, password)
     # watermark result
     mergedImageData = mergeImage(
         watermarkedInsideImageData, watermarkedOutsideImageData)
@@ -442,10 +479,13 @@ radius = 2
 # handle 3 channel image
 # enhance robust watermark
 
-# imageData = readImage("original.png")
-imageData = readImage("original2.png")
+imageData = readImage("original.png")
 watermarked = multipleWatermark(
     imageData, "thor", outsideShape, factor, False, False, "watermarked.png", bitPerPart, radius)
+
+# imageData2 = readImage("original2.png")
+# watermarked2 = multipleWatermark(
+#     imageData2, "thor", outsideShape, factor, False, False, "watermarked.png", bitPerPart, radius)
 
 # noise_img = skimage.util.random_noise(watermarked, mode="gaussian")
 # noise_img = (255*noise_img).astype(np.uint8)
