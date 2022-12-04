@@ -5,6 +5,7 @@ import random
 from PIL import Image
 import numpy as np
 import skimage
+from scipy.ndimage import gaussian_filter
 
 
 def charToBit(char):
@@ -63,7 +64,7 @@ def validateInsideImageData(insideImagedata):
     return True
 
 
-def splitImage(imageData, outsideImageSize, mode):
+def splitImage(imageData, outsideImageSize):
     """
     function to split image into inside part and outside part
     example:
@@ -84,9 +85,6 @@ def splitImage(imageData, outsideImageSize, mode):
     yTotalImagePart = imageSize[0] // outsideHeight
     xOutsideShape = (xTotalImagePart, outsideHeight, outsideWidth)
     yOutsideShape = (yTotalImagePart, outsideHeight, outsideWidth)
-    if mode == "RGB":
-        xOutsideShape = (xTotalImagePart, outsideHeight, outsideWidth, 3)
-        yOutsideShape = (yTotalImagePart, outsideHeight, outsideWidth, 3)
     upside = np.zeros(xOutsideShape, dtype=np.uint8)
     bottomside = np.zeros(xOutsideShape, dtype=np.uint8)
     rightside = np.zeros(yOutsideShape, dtype=np.uint8)
@@ -329,13 +327,18 @@ def processEmbedRobustWatermark(imageDataArray, password, embedFactor=10, bitPer
 
 
 def checkBitRobustWatermark(extracted, original, bitPerPart):
-    normExtracted = normalize(extracted, 0, 1)
-    bitExtracted = np.where(np.array(normExtracted) > 0.5, 1, 0)
-    similarityArray = np.zeros(bitPerPart, dtype=np.uint8)
-    for i in range(bitPerPart):
-        if bitExtracted[i] == original[i]:
-            similarityArray[i] = 1
-    return similarityArray
+    if(len(np.unique(extracted)) > 1):
+        normExtracted = normalize(extracted, 0, 1)
+        bitExtracted = np.where(np.array(normExtracted) > 0.5, 1, 0)
+        similarityArray = np.zeros(bitPerPart, dtype=np.uint8)
+        for i in range(bitPerPart):
+            if bitExtracted[i] == original[i]:
+                similarityArray[i] = 1
+        return similarityArray
+    if(len(np.unique(original)) == 1):
+        return np.repeat(1, bitPerPart)
+    else:
+        return np.repeat(0.5, bitPerPart)
 
 
 def processExtractRobustWatermark(imageDataArray, originalImageDataArray, password, embedFactor=10, bitPerPart=8, radius=-1):
@@ -390,8 +393,11 @@ def processExtractRobustWatermark(imageDataArray, originalImageDataArray, passwo
 def multipleWatermark(imageData, password, outsideImageSize=(32, 32), factor=10, show=False, save=False, out="out.png", bitPerPart=8, radius=-1):
     mergedImageData = np.zeros(imageData.shape, dtype=np.uint8)
     # embed watermark
-    insideImageData, outsideImageData = splitImage(
-        imageData, outsideImageSize, Image.fromarray(imageData).mode)
+    insideImageData, _ = splitImage(
+        imageData, outsideImageSize)
+    blurred = gaussian_filter(imageData, sigma=7)
+    _, outsideImageData = splitImage(
+        blurred, outsideImageSize)
     watermarkedOutsideImageData = processEmbedRobustWatermark(
         outsideImageData, password, factor, bitPerPart, radius)
     watermarkedInsideImageData = embedFragileWatermark(insideImageData)
@@ -412,8 +418,9 @@ def multipleWatermark(imageData, password, outsideImageSize=(32, 32), factor=10,
 
 def extractMultipleWatermark(imageData, originalImageData, password, outsideImageSize=(32, 32), factor=10, bitPerPart=8, radius=-1):
     insideWatermark, outsideWatermark = splitImage(imageData, outsideImageSize)
+    blurred = gaussian_filter(originalImageData, sigma=7)
     _, originalOutsideWatermark = splitImage(
-        originalImageData, outsideImageSize)
+        blurred, outsideImageSize)
     # fragile
     extractedFragile = extractFragileWatermark(insideWatermark)
     # robust
@@ -433,19 +440,19 @@ def splitThenMergeShouldReturnSameImage(filename):
 
 # assert splitThenMergeShouldReturnSameImage("original.png") == True
 
-outsideShape = (8, 8)
-factor = 2
-bitPerPart = 2
-radius = 2
+outsideShape = (40, 40)
+factor = 10
+bitPerPart = 8
+radius = 5
 
 # TODO
 # handle 3 channel image
 # enhance robust watermark
 
-# imageData = readImage("original.png")
-imageData = readImage("original2.png")
+imageData = readImage("original2-gray.png")
 watermarked = multipleWatermark(
-    imageData, "thor", outsideShape, factor, False, False, "watermarked.png", bitPerPart, radius)
+    imageData, "thor", outsideShape, factor, True, False, "watermarked.png", bitPerPart, radius)
+extractMultipleWatermark(watermarked, imageData, "thor", outsideShape, factor, bitPerPart, radius)
 
 # noise_img = skimage.util.random_noise(watermarked, mode="gaussian")
 # noise_img = (255*noise_img).astype(np.uint8)
