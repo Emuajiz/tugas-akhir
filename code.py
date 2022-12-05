@@ -7,6 +7,7 @@ import numpy as np
 import skimage
 from scipy.ndimage import gaussian_filter
 
+BLUR_CONSTANT = 0
 
 def charToBit(char):
     assert len(char) == 1
@@ -395,7 +396,7 @@ def multipleWatermark(imageData, password, outsideImageSize=(32, 32), factor=10,
     # embed watermark
     insideImageData, _ = splitImage(
         imageData, outsideImageSize)
-    blurred = gaussian_filter(imageData, sigma=7)
+    blurred = gaussian_filter(imageData, sigma=BLUR_CONSTANT)
     _, outsideImageData = splitImage(
         blurred, outsideImageSize)
     watermarkedOutsideImageData = processEmbedRobustWatermark(
@@ -418,7 +419,7 @@ def multipleWatermark(imageData, password, outsideImageSize=(32, 32), factor=10,
 
 def extractMultipleWatermark(imageData, originalImageData, password, outsideImageSize=(32, 32), factor=10, bitPerPart=8, radius=-1):
     insideWatermark, outsideWatermark = splitImage(imageData, outsideImageSize)
-    blurred = gaussian_filter(originalImageData, sigma=7)
+    blurred = gaussian_filter(originalImageData, sigma=BLUR_CONSTANT)
     _, originalOutsideWatermark = splitImage(
         blurred, outsideImageSize)
     # fragile
@@ -441,15 +442,15 @@ def splitThenMergeShouldReturnSameImage(filename):
 # assert splitThenMergeShouldReturnSameImage("original.png") == True
 
 outsideShape = (40, 40)
-factor = 10
+factor = 20
 bitPerPart = 8
-radius = 5
+radius = 10
 
 # TODO
 # handle 3 channel image
 # enhance robust watermark
 
-imageData = readImage("original2-gray.png")
+imageData = readImage("original4.png")
 watermarked = multipleWatermark(
     imageData, "thor", outsideShape, factor, True, False, "watermarked.png", bitPerPart, radius)
 extractMultipleWatermark(watermarked, imageData, "thor", outsideShape, factor, bitPerPart, radius)

@@ -1,5 +1,7 @@
 *.png
 !original.png
 !original2.png
+!original3.png
+!original4.png
 !fragileWatermark.png
 venv
