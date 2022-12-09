@@ -9,6 +9,8 @@ import skimage
 from scipy.ndimage import gaussian_filter
 
 BLUR_CONSTANT = 0
+INSIDE_ONLY = "INSIDE_ONLY"
+
 
 def charToBit(char):
     assert len(char) == 1
@@ -66,7 +68,7 @@ def validateInsideImageData(insideImagedata):
     return True
 
 
-def splitImage(imageData, outsideImageSize):
+def splitImage(imageData, outsideImageSize, mode="ALL"):
     """
     function to split image into inside part and outside part
     example:
@@ -82,6 +84,9 @@ def splitImage(imageData, outsideImageSize):
 
     insidePart = imageData[outsideHeight:imageSize[0] -
                            outsideHeight, outsideWidth:imageSize[1] - outsideWidth]
+
+    if(mode == INSIDE_ONLY):
+        return [insidePart, []]
 
     xTotalImagePart = imageSize[1] // outsideWidth
     yTotalImagePart = imageSize[0] // outsideHeight
@@ -128,8 +133,7 @@ def mergeImage(insidePart, outsidePart):
         # upside
         imageData[0:val.shape[0], i*val.shape[1]:(i+1)*val.shape[1]] = val
         # bottomside
-        imageData[-val.shape[0]:, i*val.shape[1]
-            :(i+1)*val.shape[1]] = outsidePart[2][-(i+1)]
+        imageData[-val.shape[0]:, i*val.shape[1]:(i+1)*val.shape[1]] = outsidePart[2][-(i+1)]
 
     for i, val in enumerate(outsidePart[1]):
         # rightside
@@ -178,7 +182,6 @@ def createEmbedOrder(imageShape, password=False):
 
 
 def embedFragileWatermark(imageData, password):
-    print(imageData.shape)
     watermarkedImageData = np.zeros(imageData.shape, dtype=np.uint8)
     fragileWatermarkPayload = makeFragileWatermarkPayload(imageData)
     order = createEmbedOrder(imageData.shape, password)
@@ -394,51 +397,30 @@ def processExtractRobustWatermark(imageDataArray, originalImageDataArray, passwo
     return np.average(watermarkCheck)
 
 
-def getYChannelFromRGB(imageData):
-    arr = np.array(Image.fromarray(imageData).convert("YCbCr"))
-    return arr[:, :, 0]
+def mergeChannel(imageDataR, imageDataG, imageDataB):
+    imageDataRGB = np.zeros(imageDataR.shape + (3, ), dtype=np.uint8)
+    imageDataRGB[:, :, 0] = imageDataR
+    imageDataRGB[:, :, 1] = imageDataG
+    imageDataRGB[:, :, 2] = imageDataB
+    return imageDataRGB
 
 
-def constructRGBFromY(rgbImageData, yImageData):
-    arr = np.array(Image.fromarray(imageData).convert("YCbCr"))
-    arr[:, :, 0] = yImageData
+def rgbToYUV(imageData):
+    return np.array(Image.fromarray(imageData, mode="RGB").convert("YCbCr"))
+
+
+def yuvToRGB(imageData):
     return np.array(Image.fromarray(imageData, mode="YCbCr").convert("RGB"))
 
 
-def multipleWatermark(imageData, password, outsideImageSize=(32, 32), factor=10, show=False, save=False, out="out.png", bitPerPart=8, radius=-1):
-    mergedImageData = np.zeros(imageData.shape, dtype=np.uint8)
-    mode = Image.fromarray(imageData).mode
+def processEmbedMultipleWatermark(imageData, password, outsideImageSize=(32, 32), factor=10, show=False, save=False, out="out.png", bitPerPart=8, radius=-1):
     # embed watermark
-    insideImageData, _ = splitImage(
+    insideImageData, outsideImageData = splitImage(
         imageData, outsideImageSize)
-    blurred = gaussian_filter(imageData, sigma=BLUR_CONSTANT)
-    _, outsideImageData = splitImage(
-        blurred, outsideImageSize)
-    if mode == "RGB":
-        processedOutsideImageData = [
-            np.array([getYChannelFromRGB(outsideImageData[0][i])
-                      for i in range(outsideImageData[0].shape[0])]),
-            np.array([getYChannelFromRGB(outsideImageData[1][i])
-                      for i in range(outsideImageData[1].shape[0])]),
-            np.array([getYChannelFromRGB(outsideImageData[2][i])
-                      for i in range(outsideImageData[2].shape[0])]),
-            np.array([getYChannelFromRGB(outsideImageData[3][i])
-                      for i in range(outsideImageData[3].shape[0])]),
-        ]
-    else:
-        processedOutsideImageData = outsideImageData
     watermarkedOutsideImageData = processEmbedRobustWatermark(
-        processedOutsideImageData, password, factor, bitPerPart, radius)
-    if mode == "RGB":
-        start = time.time()
-        watermarkedInsideImageData = embedFragileWatermark(insideImageData[:,:,0], password)
-        watermarkedInsideImageData = embedFragileWatermark(insideImageData[:,:,1], password)
-        watermarkedInsideImageData = embedFragileWatermark(insideImageData[:,:,2], password)
-        end = time.time()
-        print(start, end)
-        exit()
-    else:
-        watermarkedInsideImageData = embedFragileWatermark(insideImageData, password)
+        outsideImageData, password, factor, bitPerPart, radius)
+    watermarkedInsideImageData = embedFragileWatermark(
+        insideImageData, password)
     # watermark result
     mergedImageData = mergeImage(
         watermarkedInsideImageData, watermarkedOutsideImageData)
@@ -454,7 +436,70 @@ def multipleWatermark(imageData, password, outsideImageSize=(32, 32), factor=10,
     return mergedImageData
 
 
-def extractMultipleWatermark(imageData, originalImageData, password, outsideImageSize=(32, 32), factor=10, bitPerPart=8, radius=-1):
+def processEmbedMultipleWatermarkColor(imageData, password, outsideImageSize=(32, 32), factor=10, show=False, save=False, out="out.png", bitPerPart=8, radius=-1):
+    imageDataYUV = rgbToYUV(imageData)
+    insideImageDataR, _ = splitImage(
+        imageData[:, :, 0], outsideImageSize, INSIDE_ONLY)
+    insideImageDataG, _ = splitImage(
+        imageData[:, :, 1], outsideImageSize, INSIDE_ONLY)
+    insideImageDataB, _ = splitImage(
+        imageData[:, :, 2], outsideImageSize, INSIDE_ONLY)
+    _, outsideImageDataY = splitImage(
+        imageDataYUV[:, :, 0], outsideImageSize)
+    _, outsideImageDataU = splitImage(
+        imageDataYUV[:, :, 1], outsideImageSize)
+    _, outsideImageDataV = splitImage(
+        imageDataYUV[:, :, 2], outsideImageSize)
+
+    watermarkedInsideImageDataR = embedFragileWatermark(
+        insideImageDataR, password)
+    watermarkedInsideImageDataG = embedFragileWatermark(
+        insideImageDataG, password)
+    watermarkedInsideImageDataB = embedFragileWatermark(
+        insideImageDataB, password)
+    watermarkedOutsideImageDataY = processEmbedRobustWatermark(
+        outsideImageDataY, password, factor, bitPerPart, radius)
+
+    outsideImageDataR = [
+        np.zeros(outsideImageDataY[0].shape, dtype=np.uint8),
+        np.zeros(outsideImageDataY[1].shape, dtype=np.uint8),
+        np.zeros(outsideImageDataY[2].shape, dtype=np.uint8),
+        np.zeros(outsideImageDataY[3].shape, dtype=np.uint8)
+    ]
+    outsideImageDataG = [
+        np.zeros(outsideImageDataY[0].shape, dtype=np.uint8),
+        np.zeros(outsideImageDataY[1].shape, dtype=np.uint8),
+        np.zeros(outsideImageDataY[2].shape, dtype=np.uint8),
+        np.zeros(outsideImageDataY[3].shape, dtype=np.uint8)
+    ]
+    outsideImageDataB = [
+        np.zeros(outsideImageDataY[0].shape, dtype=np.uint8),
+        np.zeros(outsideImageDataY[1].shape, dtype=np.uint8),
+        np.zeros(outsideImageDataY[2].shape, dtype=np.uint8),
+        np.zeros(outsideImageDataY[3].shape, dtype=np.uint8)
+    ]
+
+    for i in range(len(watermarkedOutsideImageDataY)):
+        for j, _ in enumerate(watermarkedOutsideImageDataY[i]):
+            yuvImageData = np.zeros(
+                watermarkedOutsideImageDataY[i][j].shape + (3,), dtype=np.uint8)
+            yuvImageData[:, :, 0] = watermarkedOutsideImageDataY[i][j]
+            yuvImageData[:, :, 1] = outsideImageDataU[i][j]
+            yuvImageData[:, :, 2] = outsideImageDataV[i][j]
+            rgbImageData = yuvToRGB(yuvImageData)
+            outsideImageDataR[i][j] = rgbImageData[:, :, 0]
+            outsideImageDataG[i][j] = rgbImageData[:, :, 1]
+            outsideImageDataB[i][j] = rgbImageData[:, :, 2]
+
+    imageDataR = mergeImage(watermarkedInsideImageDataR, outsideImageDataR)
+    imageDataG = mergeImage(watermarkedInsideImageDataG, outsideImageDataG)
+    imageDataB = mergeImage(watermarkedInsideImageDataB, outsideImageDataB)
+    watermarkedImageData = mergeChannel(imageDataR, imageDataG, imageDataB)
+
+    return watermarkedImageData
+
+
+def processExtractMultipleWatermark(imageData, originalImageData, password, outsideImageSize=(32, 32), factor=10, bitPerPart=8, radius=-1):
     insideWatermark, outsideWatermark = splitImage(imageData, outsideImageSize)
     blurred = gaussian_filter(originalImageData, sigma=BLUR_CONSTANT)
     _, originalOutsideWatermark = splitImage(
@@ -475,8 +520,8 @@ def splitThenMergeShouldReturnSameImage(filename):
     merged = mergeImage(insideImageData, outsideImageData)
     return psnr(imageData, merged) == 100
 
-
 # assert splitThenMergeShouldReturnSameImage("original.png") == True
+
 
 outsideShape = (40, 40)
 factor = 20
@@ -487,11 +532,12 @@ radius = 10
 # handle 3 channel image
 # enhance robust watermark
 
-imageData = readImage("original.png")
-# imageData = readImage("original4.png")
-watermarked = multipleWatermark(
+imageData = readImage("original1-color.png")
+# watermarked = multipleWatermark(
+#     imageData, "thor", outsideShape, factor, True, False, "watermarked.png", bitPerPart, radius)
+watermarked = processEmbedMultipleWatermarkColor(
     imageData, "thor", outsideShape, factor, True, False, "watermarked.png", bitPerPart, radius)
-extractMultipleWatermark(watermarked, imageData, "thor", outsideShape, factor, bitPerPart, radius)
+# extractMultipleWatermark(watermarked, imageData, "thor", outsideShape, factor, bitPerPart, radius)
 
 # imageData2 = readImage("original2.png")
 # watermarked2 = multipleWatermark(
