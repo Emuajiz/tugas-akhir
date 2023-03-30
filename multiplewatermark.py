@@ -86,7 +86,7 @@ def splitImage(imageData, outsideImageSize, mode="ALL"):
     insidePart = imageData[outsideHeight:imageSize[0] -
                            outsideHeight, outsideWidth:imageSize[1] - outsideWidth]
 
-    if(mode == INSIDE_ONLY):
+    if (mode == INSIDE_ONLY):
         return [insidePart, []]
 
     xTotalImagePart = imageSize[1] // outsideWidth
@@ -157,19 +157,26 @@ def normalize(arr, t_min, t_max):
 
 
 def imageHash(imageData):
+    t_start = time.process_time()
     h = hashlib.sha256()
-    for i in imageData:
-        for j in i:
-            assert (j // 2) < 128
-            h.update(j // 2)
+    # remove last bit
+    tmp = (imageData / np.array(2, dtype=int))
+    # make sure integer
+    tmp = tmp.astype(np.uint8)
+    h.update(np.ascontiguousarray(tmp))
+    t_stop = time.process_time()
+    print("hashing time: ", t_stop-t_start)
     return h.digest()
 
 
 def makeFragileWatermarkPayload(imageData):
+    t_start = time.process_time()
     fragileWatermarkPayload = imageHash(imageData)
     fragileWatermarkPayloadBitString = []
     for i in fragileWatermarkPayload:
         fragileWatermarkPayloadBitString.append("{0:08b}".format(i))
+    t_stop = time.process_time()
+    print("construct fragile payload time: ", t_stop-t_start)
     return ''.join(fragileWatermarkPayloadBitString)
 
 
@@ -186,11 +193,14 @@ def embedFragileWatermark(imageData, password):
     watermarkedImageData = np.zeros(imageData.shape, dtype=np.uint8)
     fragileWatermarkPayload = makeFragileWatermarkPayload(imageData)
     order = createEmbedOrder(imageData.shape, password)
+    t_start = time.process_time()
     for i, val in enumerate(order):
         p = imageData[val[0], val[1]]
         p &= 0b11111110
         p |= int(fragileWatermarkPayload[i % len(fragileWatermarkPayload)])
         watermarkedImageData[val[0], val[1]] = p
+    t_stop = time.process_time()
+    print("embedding fragile time: ", t_stop-t_start)
     return watermarkedImageData
 
 
@@ -335,7 +345,7 @@ def processEmbedRobustWatermark(imageDataArray, password, embedFactor=10, bitPer
 
 
 def checkBitRobustWatermark(extracted, original, bitPerPart):
-    if(len(np.unique(extracted)) > 1):
+    if (len(np.unique(extracted)) > 1):
         normExtracted = normalize(extracted, 0, 1)
         bitExtracted = np.where(np.array(normExtracted) > 0.5, 1, 0)
         similarityArray = np.zeros(bitPerPart, dtype=np.uint8)
@@ -343,7 +353,7 @@ def checkBitRobustWatermark(extracted, original, bitPerPart):
             if bitExtracted[i] == original[i]:
                 similarityArray[i] = 1
         return similarityArray
-    if(len(np.unique(original)) == 1):
+    if (len(np.unique(original)) == 1):
         return np.repeat(1, bitPerPart)
     else:
         return np.repeat(0.5, bitPerPart)
@@ -437,7 +447,7 @@ def processEmbedMultipleWatermark(imageData, password, outsideImageSize=(32, 32)
     return mergedImageData
 
 
-def processEmbedMultipleWatermarkColor(imageData, password, outsideImageSize=(32, 32), factor=10, show=False, save=False, dir="watermarked", out="out.png", bitPerPart=8, radius=-1):
+def processEmbedMultipleWatermarkColor(imageData, password, outsideImageSize=(32, 32), factor=10, show=False, save=False, dir="watermarked", out="out.png", bitPerPart=8, radius=-1, mode="NORMAL"):
     imageDataYUV = rgbToYUV(imageData)
     insideImageDataR, _ = splitImage(
         imageData[:, :, 0], outsideImageSize, INSIDE_ONLY)
@@ -452,14 +462,19 @@ def processEmbedMultipleWatermarkColor(imageData, password, outsideImageSize=(32
     _, outsideImageDataV = splitImage(
         imageDataYUV[:, :, 2], outsideImageSize)
 
+    t1_start = time.process_time()
     watermarkedInsideImageDataR = embedFragileWatermark(
         insideImageDataR, password)
     watermarkedInsideImageDataG = embedFragileWatermark(
         insideImageDataG, password)
     watermarkedInsideImageDataB = embedFragileWatermark(
         insideImageDataB, password)
+    t1_stop = time.process_time()
+
+    t2_start = time.process_time()
     watermarkedOutsideImageDataY = processEmbedRobustWatermark(
         outsideImageDataY, password, factor, bitPerPart, radius)
+    t2_stop = time.process_time()
 
     # variable to construct outside RGB data from outside YUV data
     outsideImageDataR = [
@@ -498,17 +513,22 @@ def processEmbedMultipleWatermarkColor(imageData, password, outsideImageSize=(32
     imageDataB = mergeImage(watermarkedInsideImageDataB, outsideImageDataB)
     watermarkedImageData = mergeChannel(imageDataR, imageDataG, imageDataB)
 
-    if(show == True):
+    if (show == True):
         Image.fromarray(watermarkedImageData).show()
 
-    if(save == True):
-        if(os.path.exists(dir) == False):
+    if (save == True):
+        if (os.path.exists(dir) == False):
             os.mkdir(dir)
-        if(os.path.isdir(dir)):
+        if (os.path.isdir(dir)):
             Image.fromarray(watermarkedImageData).save(f"{dir}/{out}")
         else:
             print("cannot save to file")
 
+    if (mode == "VERBOSE"):
+        print("fragile processing time:",
+              t1_stop-t1_start)
+        print("robust processing time:",
+              t2_stop-t2_start)
     return watermarkedImageData
 
 
@@ -526,6 +546,7 @@ def processExtractMultipleWatermark(imageData, originalImageData, password, outs
     print(np.average(extractedFragile))
     print(robustCheckResult)
 
+
 def processExtractMultipleWatermarkColor(imageData, originalImageData, password, outsideImageSize=(32, 32), factor=10, bitPerPart=8, radius=-1):
     imageDataYUV = rgbToYUV(imageData)
     originalImageDataYUV = rgbToYUV(originalImageData)
@@ -539,16 +560,16 @@ def processExtractMultipleWatermarkColor(imageData, originalImageData, password,
         imageDataYUV[:, :, 0], outsideImageSize)
     _, originalOutsideImageDataY = splitImage(
         originalImageDataYUV[:, :, 0], outsideImageSize)
-    
+
     # fragile
     extractedFragileR = extractFragileWatermark(insideImageDataR, password)
     extractedFragileG = extractFragileWatermark(insideImageDataG, password)
     extractedFragileB = extractFragileWatermark(insideImageDataB, password)
-    
+
     # fragile
     robustCheckResult = processExtractRobustWatermark(
         outsideImageDataY, originalOutsideImageDataY, password, factor, bitPerPart, radius)
-    
+
     print(np.average(extractedFragileR))
     print(np.average(extractedFragileG))
     print(np.average(extractedFragileB))
@@ -563,15 +584,12 @@ def splitThenMergeShouldReturnSameImage(filename):
 
 # assert splitThenMergeShouldReturnSameImage("original.png") == True
 
+
 if __name__ == "__main__":
     outsideShape = (40, 40)
     factor = 20
     bitPerPart = 8
     radius = 10
-
-    # TODO
-    # handle 3 channel image
-    # enhance robust watermark
 
     imageData = readImage("original1-color.png")
     # watermarked = multipleWatermark(
@@ -579,35 +597,5 @@ if __name__ == "__main__":
     watermarked = processEmbedMultipleWatermarkColor(
         imageData, "thor", outsideShape, factor, True, True, "watermarked", "watermarked.png", bitPerPart, radius)
     # extractMultipleWatermark(watermarked, imageData, "thor", outsideShape, factor, bitPerPart, radius)
-    processExtractMultipleWatermarkColor(watermarked, imageData, "thor", outsideShape, factor, bitPerPart, radius)
-
-    # imageData2 = readImage("original2.png")
-    # watermarked2 = multipleWatermark(
-    #     imageData2, "thor", outsideShape, factor, False, False, "watermarked.png", bitPerPart, radius)
-
-    # noise_img = skimage.util.random_noise(watermarked, mode="gaussian")
-    # noise_img = (255*noise_img).astype(np.uint8)
-    # Image.fromarray(noise_img).show()
-    # Image.fromarray(watermarked).show()
-    # extractMultipleWatermark(noise_img, imageData, "thor", outsideShape, factor, bitPerPart, radius)
-    # extractMultipleWatermark(watermarked, imageData, "thor", outsideShape, factor, bitPerPart, radius)
-
-    # add noise
-    # Image.fromarray(imageData).show()
-    # noise_img = random_noise(imageData, mode="gaussian")
-    # noise_img = random_noise(imageData, mode="localvar")
-    # noise_img = random_noise(imageData, mode="salt")
-    # noise_img = random_noise(imageData, mode="pepper")
-    # noise_img = random_noise(imageData, mode="s&p")
-    # noise_img = skimage.util.random_noise(imageData, mode="speckle")
-    # noise_img = (255*noise_img).astype(np.uint8)
-    # Image.fromarray(noise_img).show()
-
-    # # blur
-    # Image.fromarray(imageData).show()
-    # sigma = 3.0
-    # # apply Gaussian blur, creating a new image
-    # blurred = skimage.filters.gaussian(
-    #     imageData, sigma=(sigma, sigma), truncate=3.5, channel_axis=2)
-    # blurred = (255*blurred).astype(np.uint8)
-    # Image.fromarray(blurred).show()
+    processExtractMultipleWatermarkColor(
+        watermarked, imageData, "thor", outsideShape, factor, bitPerPart, radius)
