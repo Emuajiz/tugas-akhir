@@ -46,8 +46,8 @@ def readImage(filename):
     return np.array(image)
 
 
-def validateInsideImageData(insideImagedata):
-    """helper to validate inside image data using overlapping at image corner data"""
+def validateOutsideImageData(insideImagedata):
+    """helper to validate outside image data using overlapping at image corner data"""
     if psnr(insideImagedata[0][0], insideImagedata[3][-1]) != 100:
         return False
     if psnr(insideImagedata[1][0], insideImagedata[0][-1]) != 100:
@@ -115,14 +115,14 @@ def splitImage(imageData, outsideImageSize, mode="ALL"):
             imageData[imageSize[0] - val - outsideHeight:imageSize[0] - val, 0:outsideWidth])
 
     # overlapping for check
-    assert validateInsideImageData(
+    assert validateOutsideImageData(
         [upside, rightside, bottomside, leftside]) == True
 
     return insidePart, [upside, rightside, bottomside, leftside]
 
 
 def mergeImage(insidePart, outsidePart):
-    assert validateInsideImageData(outsidePart) == True
+    assert validateOutsideImageData(outsidePart) == True
 
     imageSize = (insidePart.shape[0] + 2*outsidePart[0].shape[1],
                  insidePart.shape[1] + 2*outsidePart[0].shape[2])
@@ -134,7 +134,8 @@ def mergeImage(insidePart, outsidePart):
         # upside
         imageData[0:val.shape[0], i*val.shape[1]:(i+1)*val.shape[1]] = val
         # bottomside
-        imageData[-val.shape[0]:, i*val.shape[1]:(i+1)*val.shape[1]] = outsidePart[2][-(i+1)]
+        imageData[-val.shape[0]:, i*val.shape[1]
+            :(i+1)*val.shape[1]] = outsidePart[2][-(i+1)]
 
     for i, val in enumerate(outsidePart[1]):
         # rightside
@@ -156,7 +157,7 @@ def normalize(arr, t_min, t_max):
     return norm_arr
 
 
-def imageHash(imageData):
+def imageHash(imageData, mode="NORMAL"):
     t_start = time.process_time()
     h = hashlib.sha256()
     # remove last bit
@@ -165,18 +166,20 @@ def imageHash(imageData):
     tmp = tmp.astype(np.uint8)
     h.update(np.ascontiguousarray(tmp))
     t_stop = time.process_time()
-    print("hashing time: ", t_stop-t_start)
+    if (mode == "VERBOSE"):
+        print("hashing time: ", t_stop-t_start)
     return h.digest()
 
 
-def makeFragileWatermarkPayload(imageData):
+def makeFragileWatermarkPayload(imageData, mode="NORMAL"):
     t_start = time.process_time()
     fragileWatermarkPayload = imageHash(imageData)
     fragileWatermarkPayloadBitString = []
     for i in fragileWatermarkPayload:
         fragileWatermarkPayloadBitString.append("{0:08b}".format(i))
     t_stop = time.process_time()
-    print("construct fragile payload time: ", t_stop-t_start)
+    if (mode == "VERBOSE"):
+        print("construct fragile payload time: ", t_stop-t_start)
     return ''.join(fragileWatermarkPayloadBitString)
 
 
@@ -189,7 +192,7 @@ def createEmbedOrder(imageShape, password=False):
     return order
 
 
-def embedFragileWatermark(imageData, password):
+def embedFragileWatermark(imageData, password, mode="NORMAL"):
     watermarkedImageData = np.zeros(imageData.shape, dtype=np.uint8)
     fragileWatermarkPayload = makeFragileWatermarkPayload(imageData)
     order = createEmbedOrder(imageData.shape, password)
@@ -200,7 +203,8 @@ def embedFragileWatermark(imageData, password):
         p |= int(fragileWatermarkPayload[i % len(fragileWatermarkPayload)])
         watermarkedImageData[val[0], val[1]] = p
     t_stop = time.process_time()
-    print("embedding fragile time: ", t_stop-t_start)
+    if (mode == "VERBOSE"):
+        print("embedding fragile time: ", t_stop-t_start)
     return watermarkedImageData
 
 
@@ -338,7 +342,7 @@ def processEmbedRobustWatermark(imageDataArray, password, embedFactor=10, bitPer
     counter -= 1
 
     # overlapping for check
-    assert validateInsideImageData(
+    assert validateOutsideImageData(
         [upsideDataArray, rightsideDataArray, bottomsideDataArray, leftsideDataArray]) == True
 
     return [upsideDataArray, rightsideDataArray, bottomsideDataArray, leftsideDataArray]
@@ -447,14 +451,31 @@ def processEmbedMultipleWatermark(imageData, password, outsideImageSize=(32, 32)
     return mergedImageData
 
 
-def processEmbedMultipleWatermarkColor(imageData, password, outsideImageSize=(32, 32), factor=10, show=False, save=False, dir="watermarked", out="out.png", bitPerPart=8, radius=-1, mode="NORMAL"):
-    imageDataYUV = rgbToYUV(imageData)
+def processEmbedFragileWatermarkColor(imageData, password, outsideImageSize=(32, 32), mode="NORMAL"):
     insideImageDataR, _ = splitImage(
         imageData[:, :, 0], outsideImageSize, INSIDE_ONLY)
     insideImageDataG, _ = splitImage(
         imageData[:, :, 1], outsideImageSize, INSIDE_ONLY)
     insideImageDataB, _ = splitImage(
         imageData[:, :, 2], outsideImageSize, INSIDE_ONLY)
+    t_start = time.process_time()
+    watermarkedInsideImageDataR = embedFragileWatermark(
+        insideImageDataR, password)
+    watermarkedInsideImageDataG = embedFragileWatermark(
+        insideImageDataG, password)
+    watermarkedInsideImageDataB = embedFragileWatermark(
+        insideImageDataB, password)
+    t_stop = time.process_time()
+
+    if (mode == "VERBOSE"):
+        print("fragile processing time:",
+              t_stop-t_start)
+
+    return watermarkedInsideImageDataR, watermarkedInsideImageDataG, watermarkedInsideImageDataB
+
+
+def processEmbedMultipleWatermarkColor(imageData, password, outsideImageSize=(32, 32), factor=10, show=False, save=False, dir="watermarked", out="out.png", bitPerPart=8, radius=-1, preCalcFragileWatermark=[], mode="NORMAL"):
+    imageDataYUV = rgbToYUV(imageData)
     _, outsideImageDataY = splitImage(
         imageDataYUV[:, :, 0], outsideImageSize)
     _, outsideImageDataU = splitImage(
@@ -463,12 +484,11 @@ def processEmbedMultipleWatermarkColor(imageData, password, outsideImageSize=(32
         imageDataYUV[:, :, 2], outsideImageSize)
 
     t1_start = time.process_time()
-    watermarkedInsideImageDataR = embedFragileWatermark(
-        insideImageDataR, password)
-    watermarkedInsideImageDataG = embedFragileWatermark(
-        insideImageDataG, password)
-    watermarkedInsideImageDataB = embedFragileWatermark(
-        insideImageDataB, password)
+    if (len(preCalcFragileWatermark) != 3):
+        watermarkedInsideImageDataR, watermarkedInsideImageDataG, watermarkedInsideImageDataB = processEmbedFragileWatermarkColor(
+            imageData, password, outsideImageSize, mode)
+    else:
+        watermarkedInsideImageDataR, watermarkedInsideImageDataG, watermarkedInsideImageDataB = preCalcFragileWatermark
     t1_stop = time.process_time()
 
     t2_start = time.process_time()
