@@ -8,6 +8,9 @@
 !original3-color.png
 !original4.png
 !fragileWatermark.png
+!test-500x500.png
+!test-1000x1000.png
+!test-2000x2000.png
 venv
 
 # template from https://github.com/jupyter/notebook/blob/main/.gitignore
