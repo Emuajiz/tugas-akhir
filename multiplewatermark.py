@@ -147,7 +147,7 @@ def mergeImage(insidePart, outsidePart):
 
 
 def normalize(arr, t_min, t_max):
-    "function to normalize array"
+    "function to change scaling"
     norm_arr = []
     diff = t_max - t_min
     diff_arr = max(arr) - min(arr)
@@ -590,10 +590,10 @@ def processExtractMultipleWatermarkColor(imageData, originalImageData, password,
     robustCheckResult = processExtractRobustWatermark(
         outsideImageDataY, originalOutsideImageDataY, password, factor, bitPerPart, radius)
 
-    print(np.average(extractedFragileR))
-    print(np.average(extractedFragileG))
-    print(np.average(extractedFragileB))
-    print(robustCheckResult)
+    redCheck = np.average(extractedFragileR)
+    greenCheck = np.average(extractedFragileG)
+    blueCheck = np.average(extractedFragileB)
+    return [(redCheck, greenCheck, blueCheck), robustCheckResult]
 
 
 def splitThenMergeShouldReturnSameImage(filename):
@@ -617,5 +617,5 @@ if __name__ == "__main__":
     watermarked = processEmbedMultipleWatermarkColor(
         imageData, "thor", outsideShape, factor, True, True, "watermarked", "watermarked.png", bitPerPart, radius)
     # extractMultipleWatermark(watermarked, imageData, "thor", outsideShape, factor, bitPerPart, radius)
-    processExtractMultipleWatermarkColor(
+    fragileCheck, robustCheck = processExtractMultipleWatermarkColor(
         watermarked, imageData, "thor", outsideShape, factor, bitPerPart, radius)

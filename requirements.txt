@@ -3,3 +3,6 @@ numpy
 scikit-image
 tqdm
 ipywidgets
+pandas
+matplotlib
+tqdm
