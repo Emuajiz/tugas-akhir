@@ -1,5 +1,6 @@
 *.png
 *.jpg
+*.jpeg
 venv
 
 # template from https://github.com/jupyter/notebook/blob/main/.gitignore
