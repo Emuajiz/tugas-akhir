@@ -1,0 +1,8 @@
+1. pilih dataset dari sumber baru (yang lebih relevan mengapa membutuhkan robust watermark)
+2. pilih bagian yang ada identitas gambar
+3. posisi teknik split sesuai dengan gambar
+4. gambar flow chart sesuai kodingan (pembentukan watermark, penyisipan watermark, ekstraksi watermark)
+5. fragile watermark
+6. PSNR image terwatermark
+7. tingkat kebenaran watermark diukur dari tingkat similarity watermark 
+8. ketahanan terhadap serangan (gausah hitung psnr)
