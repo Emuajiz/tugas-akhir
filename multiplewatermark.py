@@ -183,19 +183,21 @@ def makeFragileWatermarkPayload(imageData, mode="NORMAL"):
     return ''.join(fragileWatermarkPayloadBitString)
 
 
-def createEmbedOrder(imageShape, password=False):
+def createEmbedOrder(imageShape, password=False, lenght=0):
     order = [(i, j) for i in range(imageShape[0])
              for j in range(imageShape[1])]
+    if lenght == 0:
+        lenght = len(order)
     if password:
         random.seed(password, version=2)
-        return random.sample(order, k=len(order))
-    return order
+        return random.sample(order, k=lenght)
+    return order[0:lenght]
 
 
 def embedFragileWatermark(imageData, password, mode="NORMAL"):
-    watermarkedImageData = np.zeros(imageData.shape, dtype=np.uint8)
+    watermarkedImageData = imageData
     fragileWatermarkPayload = makeFragileWatermarkPayload(imageData)
-    order = createEmbedOrder(imageData.shape, password)
+    order = createEmbedOrder(imageData.shape, password, lenght=len(fragileWatermarkPayload))
     t_start = time.process_time()
     for i, val in enumerate(order):
         p = imageData[val[0], val[1]]
@@ -210,13 +212,11 @@ def embedFragileWatermark(imageData, password, mode="NORMAL"):
 
 def extractFragileWatermark(imageData, password):
     fragileWatermarkPayload = makeFragileWatermarkPayload(imageData)
-    fragileWatermark = np.zeros(imageData.shape, dtype=np.uint8)
-    order = createEmbedOrder(imageData.shape, password)
+    order = createEmbedOrder(imageData.shape, password, lenght=len(fragileWatermarkPayload))
+    fragileWatermark = np.zeros(len(order), dtype=np.uint8)
     for i, val in enumerate(order):
         if (imageData[val[0], val[1]] % 2 == int(fragileWatermarkPayload[i % len(fragileWatermarkPayload)])):
-            fragileWatermark[val[0], val[1]] = 1
-        else:
-            fragileWatermark[val[0], val[1]] = 0
+            fragileWatermark[i] = 1
     return fragileWatermark
 
 
@@ -606,16 +606,19 @@ def splitThenMergeShouldReturnSameImage(filename):
 
 
 if __name__ == "__main__":
-    outsideShape = (40, 40)
-    factor = 20
+    outsideShape = (64, 64)
+    factor = 10
     bitPerPart = 8
-    radius = 10
+    radius = 14
 
-    imageData = readImage("original1-color.png")
-    # watermarked = multipleWatermark(
-    #     imageData, "thor", outsideShape, factor, True, False, "watermarked.png", bitPerPart, radius)
-    watermarked = processEmbedMultipleWatermarkColor(
-        imageData, "thor", outsideShape, factor, True, True, "watermarked", "watermarked.png", bitPerPart, radius)
-    # extractMultipleWatermark(watermarked, imageData, "thor", outsideShape, factor, bitPerPart, radius)
-    fragileCheck, robustCheck = processExtractMultipleWatermarkColor(
-        watermarked, imageData, "thor", outsideShape, factor, bitPerPart, radius)
+    imageData = readImage("test1.png")
+    print(imageData.shape)
+    watermarked = processEmbedMultipleWatermark(
+        imageData, "thor", outsideShape, factor, show=False, save=False, out="watermarked.png", bitPerPart=bitPerPart, radius=radius)
+    # Image.fromarray(watermarked).show()
+    # watermarked = processEmbedMultipleWatermarkColor(
+    #     imageData, "thor", outsideShape, factor, True, True, "watermarked", "watermarked.png", bitPerPart, radius)
+    processExtractMultipleWatermark(watermarked, imageData, "thor", outsideShape, factor, bitPerPart, radius)
+    # fragileCheck, robustCheck = processExtractMultipleWatermarkColor(
+    #     watermarked, imageData, "thor", outsideShape, factor, bitPerPart, radius)
+
