@@ -563,8 +563,9 @@ def processExtractMultipleWatermark(imageData, originalImageData, password, outs
     robustCheckResult = processExtractRobustWatermark(
         outsideWatermark, originalOutsideWatermark, password, factor, bitPerPart, radius)
 
-    print(np.average(extractedFragile))
-    print(robustCheckResult)
+    # print(np.average(extractedFragile))
+    # print(robustCheckResult)
+    return np.average(extractedFragile), robustCheckResult
 
 
 def processExtractMultipleWatermarkColor(imageData, originalImageData, password, outsideImageSize=(32, 32), factor=10, bitPerPart=8, radius=-1):
@@ -615,10 +616,9 @@ if __name__ == "__main__":
     print(imageData.shape)
     watermarked = processEmbedMultipleWatermark(
         imageData, "thor", outsideShape, factor, show=False, save=False, out="watermarked.png", bitPerPart=bitPerPart, radius=radius)
-    # Image.fromarray(watermarked).show()
+    # Image.fromarray(watermarked).save("test1-watermark.png")
     # watermarked = processEmbedMultipleWatermarkColor(
     #     imageData, "thor", outsideShape, factor, True, True, "watermarked", "watermarked.png", bitPerPart, radius)
     processExtractMultipleWatermark(watermarked, imageData, "thor", outsideShape, factor, bitPerPart, radius)
     # fragileCheck, robustCheck = processExtractMultipleWatermarkColor(
-    #     watermarked, imageData, "thor", outsideShape, factor, bitPerPart, radius)
-
+    #     watermarked, imageData, "thor", outsideShape, factor, bitPerPart, radius)``

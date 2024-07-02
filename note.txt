@@ -6,3 +6,8 @@
 6. PSNR image terwatermark
 7. tingkat kebenaran watermark diukur dari tingkat similarity watermark 
 8. ketahanan terhadap serangan (gausah hitung psnr)
+
+Hasil:
+1. gambar yang didapatkan seperti ini .....
+4. flow chart detail
+8. uji serangan bluring, gaussian noise, speckle noise, poisson noise, cropping
