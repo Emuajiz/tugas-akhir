@@ -197,7 +197,8 @@ def createEmbedOrder(imageShape, password=False, lenght=0):
 def embedFragileWatermark(imageData, password, mode="NORMAL"):
     watermarkedImageData = imageData
     fragileWatermarkPayload = makeFragileWatermarkPayload(imageData)
-    order = createEmbedOrder(imageData.shape, password, lenght=len(fragileWatermarkPayload))
+    order = createEmbedOrder(imageData.shape, password,
+                             lenght=len(fragileWatermarkPayload))
     t_start = time.process_time()
     for i, val in enumerate(order):
         p = imageData[val[0], val[1]]
@@ -212,7 +213,8 @@ def embedFragileWatermark(imageData, password, mode="NORMAL"):
 
 def extractFragileWatermark(imageData, password):
     fragileWatermarkPayload = makeFragileWatermarkPayload(imageData)
-    order = createEmbedOrder(imageData.shape, password, lenght=len(fragileWatermarkPayload))
+    order = createEmbedOrder(imageData.shape, password,
+                             lenght=len(fragileWatermarkPayload))
     fragileWatermark = np.zeros(len(order), dtype=np.uint8)
     for i, val in enumerate(order):
         if (imageData[val[0], val[1]] % 2 == int(fragileWatermarkPayload[i % len(fragileWatermarkPayload)])):
@@ -239,13 +241,13 @@ def calculateWatermarkPosition(vectorLength, imageShape, radius=-1):
 
 
 def calculateForWatermark(magnitude, position):
-    tmp = 0
+    element = 0
     magnitude = np.pad(magnitude, ((1, 1), (1, 1)))
-    tmp2 = (position[0]+1, position[1]+1)
+    tmp_position = (position[0]+1, position[1]+1)
     for i in range(-1, 2, 1):
         for j in range(-1, 2, 1):
-            tmp += magnitude[tmp2[0]+i][tmp2[1]+j]
-    return tmp / 9
+            element += magnitude[tmp_position[0]+i][tmp_position[1]+j]
+    return element / 9
 
 
 def embedRobustWatermark(imageData, watermarkData, alpha=1, radius=-1):
@@ -255,14 +257,12 @@ def embedRobustWatermark(imageData, watermarkData, alpha=1, radius=-1):
     imageFourier = np.fft.fftshift(np.fft.fft2(imageData))
     mag = np.abs(imageFourier)
     phase = np.angle(imageFourier)
-    watermarkElement = np.zeros(len(watermarkData), dtype=np.float64)
     for i, val in enumerate(indices):
-        watermarkElement[i] = watermarkData[i] * \
-            calculateForWatermark(mag, val)
-    for i, val in enumerate(indices):
-        tmp = mag[val[0], val[1]] + alpha * watermarkElement[i]
-        fourierTmp = tmp * cmath.exp(1j * phase[val[0], val[1]])
-        imageFourier[val[0], val[1]] = fourierTmp
+        if (watermarkData[i]):
+            watermarkElement = calculateForWatermark(mag, val)
+            magWatermarked = mag[val[0], val[1]] + alpha * watermarkElement
+            fourierTmp = magWatermarked * cmath.exp(1j * phase[val[0], val[1]])
+            imageFourier[val[0], val[1]] = fourierTmp
     watermarkedImageData = np.round(np.abs(np.fft.ifft2(
         np.fft.ifftshift(imageFourier)))).astype(np.uint8)
     return watermarkedImageData
@@ -554,9 +554,8 @@ def processEmbedMultipleWatermarkColor(imageData, password, outsideImageSize=(32
 
 def processExtractMultipleWatermark(imageData, originalImageData, password, outsideImageSize=(32, 32), factor=10, bitPerPart=8, radius=-1):
     insideWatermark, outsideWatermark = splitImage(imageData, outsideImageSize)
-    blurred = gaussian_filter(originalImageData, sigma=BLUR_CONSTANT)
     _, originalOutsideWatermark = splitImage(
-        blurred, outsideImageSize)
+        originalImageData, outsideImageSize)
     # fragile
     extractedFragile = extractFragileWatermark(insideWatermark, password)
     # robust
@@ -619,6 +618,7 @@ if __name__ == "__main__":
     # Image.fromarray(watermarked).save("test1-watermark.png")
     # watermarked = processEmbedMultipleWatermarkColor(
     #     imageData, "thor", outsideShape, factor, True, True, "watermarked", "watermarked.png", bitPerPart, radius)
-    processExtractMultipleWatermark(watermarked, imageData, "thor", outsideShape, factor, bitPerPart, radius)
+    processExtractMultipleWatermark(
+        watermarked, imageData, "thor", outsideShape, factor, bitPerPart, radius)
     # fragileCheck, robustCheck = processExtractMultipleWatermarkColor(
-    #     watermarked, imageData, "thor", outsideShape, factor, bitPerPart, radius)``
+    #     watermarked, imageData, "thor", outsideShape, factor, bitPerPart, radius)
