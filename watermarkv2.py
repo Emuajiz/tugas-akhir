@@ -22,6 +22,17 @@ def createSubBlock(data, size):
     return res
 
 
+def mergeSubBlock(data):
+    res = np.zeros((data.shape[0] * data.shape[2],
+                   data.shape[1] * data.shape[2]), dtype=np.uint8)
+    for y in range(data.shape[0]):
+        for x in range(data.shape[1]):
+            posx = x * data.shape[2]
+            posy = y * data.shape[2]
+            res[posy:posy+data.shape[2], posx:posx+data.shape[2]] = data[y, x]
+    return res
+
+
 def calculateAuthenticationBit(data, salt):
     data = data.flatten()
     data = data >> 2
@@ -109,15 +120,14 @@ if __name__ == "__main__":
         for x, _ in enumerate(subBlock[y]):
             tmpmap = arnoldMap(x, y, size[1], size[0], 10)
             salt = tmpmap[0] + tmpmap[1]
-            recoveryBits[y, x] = calculateRecoveryBit(subBlock[y, x])
+            recoveryBits[y, x] = calculateRecoveryBit(
+                subBlock[tmpmap[0], tmpmap[1]])
             authenticationBits[y, x] = calculateAuthenticationBit(
                 subBlock[y, x], salt)
             watermarkData = calculateWatermarkData(
                 authenticationBits[y, x], recoveryBits[y, x], salt)
             res[y, x] = embedWatermark(subBlock[y, x], watermarkData)
             counter = counter + 1
-            if counter > 0:
-                break
-        break
-    print(res)
+    final = mergeSubBlock(res)
+    Image.fromarray(final).show()
     print("complete")
