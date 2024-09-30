@@ -60,11 +60,29 @@ def calculateWatermarkData(authenticationBit, recoveryBit, salt):
     stringRecoveryBit = bin(recoveryBit)[2:]
     stringRecoveryBit = "000000" + stringRecoveryBit
     stringRecoveryBit = stringRecoveryBit[-6:]
-    res = stringAuthenticationBit + stringRecoveryBit
+    stringConcatedBit = stringAuthenticationBit + stringRecoveryBit
+    arrayPos = list(range(len(stringConcatedBit)))
     random.seed(salt)
-    res = list(res)
-    random.shuffle(res)
-    return ''.join(res)
+    random.shuffle(arrayPos)
+    res = ""
+    for i in arrayPos:
+        res += stringConcatedBit[i]
+    return res
+
+
+def getAuthenticationBit(watermarkBit: str, salt: int):
+    arrayPos = list(range(len(watermarkBit)))
+    random.seed(salt)
+    random.shuffle(arrayPos)
+    res = ""
+    posMap = {}
+    for i, val in enumerate(arrayPos):
+        if val > 1:
+            continue
+        posMap[val] = i
+    for i in sorted(posMap):
+        res = res + watermarkBit[posMap[i]]
+    return int(res, base=2)
 
 
 def arnoldMap(x, y, width, height, iteration):
@@ -91,7 +109,7 @@ def reverseArnoldMap(x, y, width, height, iteration):
     return (resx, resy)
 
 
-def embedWatermark(data, watermarkData):
+def embedWatermarkPerBlock(data, watermarkData):
     res = np.zeros(data.shape, dtype=np.uint8)
     counter = 0
     for y, _ in enumerate(data):
@@ -106,28 +124,63 @@ def embedWatermark(data, watermarkData):
     return res
 
 
-if __name__ == "__main__":
-    img = readImage("test1-marked.png")
-    subBlock = createSubBlock(img, 2)
+def getWatermarkDataPerBlock(data: np.ndarray):
+    res = ""
+    for y, _ in enumerate(data):
+        for x, _ in enumerate(data[y]):
+            watermarkData = data[y, x] % 4
+            stringWatermarkData = bin(watermarkData)[2:]
+            stringWatermarkData = "00" + stringWatermarkData
+            stringWatermarkData = stringWatermarkData[-2:]
+            res = res + stringWatermarkData
+    return res
 
+
+def embedWatermark(img):
+    subBlock = createSubBlock(img, 2)
     size = (subBlock.shape[0], subBlock.shape[1])
-    authenticationBits = np.zeros(size, dtype=np.uint)
-    recoveryBits = np.zeros(size, dtype=np.uint8)
-    counter = 0
 
     res = np.zeros(subBlock.shape, dtype=np.uint8)
     for y, _ in enumerate(subBlock):
         for x, _ in enumerate(subBlock[y]):
             tmpmap = arnoldMap(x, y, size[1], size[0], 10)
             salt = tmpmap[0] + tmpmap[1]
-            recoveryBits[y, x] = calculateRecoveryBit(
-                subBlock[tmpmap[0], tmpmap[1]])
-            authenticationBits[y, x] = calculateAuthenticationBit(
+            recoveryBits = calculateRecoveryBit(
+                subBlock[tmpmap[1], tmpmap[0]])
+            authenticationBits = calculateAuthenticationBit(
                 subBlock[y, x], salt)
             watermarkData = calculateWatermarkData(
-                authenticationBits[y, x], recoveryBits[y, x], salt)
-            res[y, x] = embedWatermark(subBlock[y, x], watermarkData)
-            counter = counter + 1
-    final = mergeSubBlock(res)
-    Image.fromarray(final).show()
+                authenticationBits, recoveryBits, salt)
+            res[y, x] = embedWatermarkPerBlock(subBlock[y, x], watermarkData)
+    return mergeSubBlock(res)
+
+
+def extractWatermark(img):
+    subBlock = createSubBlock(img, 2)
+    size = (subBlock.shape[0], subBlock.shape[1])
+    res = np.zeros(size, dtype=bool)
+    for y, _ in enumerate(subBlock):
+        for x, _ in enumerate(subBlock[y]):
+            tmpmap = arnoldMap(x, y, size[1], size[0], 10)
+            salt = tmpmap[0] + tmpmap[1]
+            # use later
+            # recoveryBits = calculateRecoveryBit(
+            #     subBlock[tmpmap[1], tmpmap[0]])
+            authenticationBits = calculateAuthenticationBit(
+                subBlock[y, x], salt)
+            watermarkData = getWatermarkDataPerBlock(subBlock[y, x])
+            extractedAuthenticationBits = getAuthenticationBit(
+                watermarkData, salt)
+            res[y, x] = authenticationBits == extractedAuthenticationBits
+    print(res)
+    print(np.unique(res, return_counts=True))
+    return
+
+
+if __name__ == "__main__":
+    # img = readImage("test1-marked.png")
+    # final = embedWatermark(img)
+    # Image.fromarray(final).save("test1-marked-v2-embedded.png")
+    img = readImage("test1-marked-v2-embedded.png")
+    extractWatermark(img)
     print("complete")
