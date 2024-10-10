@@ -85,6 +85,21 @@ def getAuthenticationBit(watermarkBit: str, salt: int):
     return int(res, base=2)
 
 
+def getRecoveryBit(watermarkBit: str, salt: int):
+    arrayPos = list(range(len(watermarkBit)))
+    random.seed(salt)
+    random.shuffle(arrayPos)
+    res = ""
+    posMap = {}
+    for i, val in enumerate(arrayPos):
+        if val < 2:
+            continue
+        posMap[val] = i
+    for i in sorted(posMap):
+        res = res + watermarkBit[posMap[i]]
+    return int(res, base=2)
+
+
 def arnoldMap(x, y, width, height, iteration):
     resx = x
     resy = y
@@ -155,26 +170,38 @@ def embedWatermark(img):
     return mergeSubBlock(res)
 
 
-def extractWatermark(img):
+def doRestore(data: np.ndarray, recoverData:  np.ndarray, salt: int):
+    watermarkData = getWatermarkDataPerBlock(recoverData)
+    recoveryBit = getRecoveryBit(watermarkData, salt)
+    recoveryBit = recoveryBit << 2
+    data = data % 4
+    data = data + recoveryBit
+    return data
+
+
+def extractWatermarkAndRestore(img):
     subBlock = createSubBlock(img, 2)
     size = (subBlock.shape[0], subBlock.shape[1])
-    res = np.zeros(size, dtype=bool)
+    watermarkRes = np.zeros(size, dtype=bool)
+    imgRes = np.zeros(subBlock.shape, dtype=np.uint8)
     for y, _ in enumerate(subBlock):
         for x, _ in enumerate(subBlock[y]):
             tmpmap = arnoldMap(x, y, size[1], size[0], 10)
             salt = tmpmap[0] + tmpmap[1]
-            # use later
-            # recoveryBits = calculateRecoveryBit(
-            #     subBlock[tmpmap[1], tmpmap[0]])
             authenticationBits = calculateAuthenticationBit(
                 subBlock[y, x], salt)
             watermarkData = getWatermarkDataPerBlock(subBlock[y, x])
             extractedAuthenticationBits = getAuthenticationBit(
                 watermarkData, salt)
-            res[y, x] = authenticationBits == extractedAuthenticationBits
-    print(res)
-    print(np.unique(res, return_counts=True))
-    return
+            result = authenticationBits == extractedAuthenticationBits
+            imgRes[y, x] = subBlock[y, x]
+            if result == False:
+                tmpmap = reverseArnoldMap(x, y, size[1], size[0], 10)
+                salt = tmpmap[0] + tmpmap[1]
+                imgRes[y, x] = doRestore(
+                    subBlock[y, x], subBlock[tmpmap[1], tmpmap[0]], salt)
+            watermarkRes[y, x] = result
+    return watermarkRes, imgRes
 
 
 if __name__ == "__main__":
@@ -182,5 +209,5 @@ if __name__ == "__main__":
     # final = embedWatermark(img)
     # Image.fromarray(final).save("test1-marked-v2-embedded.png")
     img = readImage("test1-marked-v2-embedded.png")
-    extractWatermark(img)
+    authRes, imgRes = extractWatermarkAndRestore(img)
     print("complete")
