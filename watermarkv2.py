@@ -201,6 +201,7 @@ def extractWatermarkAndRestore(img):
                 imgRes[y, x] = doRestore(
                     subBlock[y, x], subBlock[tmpmap[1], tmpmap[0]], salt)
             watermarkRes[y, x] = result
+    print(np.unique(watermarkRes, return_counts=True))
     return watermarkRes, imgRes
 
 
@@ -209,5 +210,7 @@ if __name__ == "__main__":
     # final = embedWatermark(img)
     # Image.fromarray(final).save("test1-marked-v2-embedded.png")
     img = readImage("test1-marked-v2-embedded.png")
+    authRes, imgRes = extractWatermarkAndRestore(img)
+    img = readImage("test1-marked-v2-embedded copy.png")
     authRes, imgRes = extractWatermarkAndRestore(img)
     print("complete")
