@@ -3,6 +3,17 @@ penghitungan similarity keberhasilan recovery
 waktu algoritma
 perbaiki flowchart
 
+https://scikit-image.org/docs/stable/auto_examples/transform/plot_ssim.html
+
 https://data.mendeley.com/datasets/zm6bxzhmfz/1
 https://data.mendeley.com/datasets/t9ndx37v5h/1
 https://datasetninja.com/dental-panoramic-x-rays
+
+tamper coincidence
+
+hitungan seberapa besar bagian gambar yang terkena serangan
+analisa: 
+
+sub blok A, recovery bit disimpan di sub blok B
+sub blok A terdeteksi berubah, mengambil recoviry bit dari sub blok
+sub blok b ini terdeteksi berubah juga

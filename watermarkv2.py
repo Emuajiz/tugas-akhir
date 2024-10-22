@@ -1,6 +1,19 @@
 from PIL import Image
 import numpy as np
 import random
+import math
+import scipy
+
+ARNOLD_MAP_N = 10
+
+
+def psnr(A, B):
+    mse = np.mean((A - B) ** 2)
+    if (mse == 0):
+        return 100
+    max_pixel = 255.0
+    psnr = 20 * math.log10(max_pixel / math.sqrt(mse))
+    return psnr
 
 
 def readImage(filename):
@@ -158,7 +171,7 @@ def embedWatermark(img):
     res = np.zeros(subBlock.shape, dtype=np.uint8)
     for y, _ in enumerate(subBlock):
         for x, _ in enumerate(subBlock[y]):
-            tmpmap = arnoldMap(x, y, size[1], size[0], 10)
+            tmpmap = arnoldMap(x, y, size[1], size[0], ARNOLD_MAP_N)
             salt = tmpmap[0] + tmpmap[1]
             recoveryBits = calculateRecoveryBit(
                 subBlock[tmpmap[1], tmpmap[0]])
@@ -184,9 +197,11 @@ def extractWatermarkAndRestore(img):
     size = (subBlock.shape[0], subBlock.shape[1])
     watermarkRes = np.zeros(size, dtype=bool)
     imgRes = np.zeros(subBlock.shape, dtype=np.uint8)
+    tamperZone = np.zeros(subBlock.shape, dtype=np.uint8)
+    tamperCoincidence = 0
     for y, _ in enumerate(subBlock):
         for x, _ in enumerate(subBlock[y]):
-            tmpmap = arnoldMap(x, y, size[1], size[0], 10)
+            tmpmap = arnoldMap(x, y, size[1], size[0], ARNOLD_MAP_N)
             salt = tmpmap[0] + tmpmap[1]
             authenticationBits = calculateAuthenticationBit(
                 subBlock[y, x], salt)
@@ -195,22 +210,36 @@ def extractWatermarkAndRestore(img):
                 watermarkData, salt)
             result = authenticationBits == extractedAuthenticationBits
             imgRes[y, x] = subBlock[y, x]
-            if result == False:
-                tmpmap = reverseArnoldMap(x, y, size[1], size[0], 10)
-                salt = tmpmap[0] + tmpmap[1]
+            # if result == False:
+            #     tmpmap = reverseArnoldMap(x, y, size[1], size[0], ARNOLD_MAP_N)
+            #     salt = x + y
+            #     imgRes[y, x] = doRestore(
+            #         subBlock[y, x], subBlock[tmpmap[1], tmpmap[0]], salt)
+            watermarkRes[y, x] = result
+    for y, _ in enumerate(watermarkRes):
+        for x, _ in enumerate(watermarkRes[y]):
+            if watermarkRes[y, x] == False:
+                tamperZone[y, x] = tamperZone[y, x] + 255
+                tmpmap = reverseArnoldMap(x, y, size[1], size[0], ARNOLD_MAP_N)
+                if watermarkRes[tmpmap[0], tmpmap[1]] == False:
+                    tamperCoincidence = tamperCoincidence + 1
+                salt = x + y
                 imgRes[y, x] = doRestore(
                     subBlock[y, x], subBlock[tmpmap[1], tmpmap[0]], salt)
-            watermarkRes[y, x] = result
+    print(tamperCoincidence)
     print(np.unique(watermarkRes, return_counts=True))
-    return watermarkRes, imgRes
+    return watermarkRes, mergeSubBlock(imgRes), mergeSubBlock(tamperZone)
 
 
 if __name__ == "__main__":
-    # img = readImage("test1-marked.png")
-    # final = embedWatermark(img)
-    # Image.fromarray(final).save("test1-marked-v2-embedded.png")
-    img = readImage("test1-marked-v2-embedded.png")
-    authRes, imgRes = extractWatermarkAndRestore(img)
-    img = readImage("test1-marked-v2-embedded copy.png")
-    authRes, imgRes = extractWatermarkAndRestore(img)
-    print("complete")
+    # originalImage = readImage("test1-marked.png")
+    # watermarkedImage = embedWatermark(originalImage)
+    # Image.fromarray(watermarkedImage).save("test1-marked-v2-embedded.png")
+    # watermarkedImage = readImage("test1-marked-v2-embedded.png")
+    # print("nilai PSNR: " + str(psnr(originalImage, watermarkedImage)))
+    # authRes, imgRes = extractWatermarkAndRestore(watermarkedImage)
+    attackedImage = readImage("test1-marked-v2-embedded-attacked.png")
+    authRes, attackedImageRestored, tamperZone = extractWatermarkAndRestore(attackedImage)
+    Image.fromarray(tamperZone).show()
+    # Image.fromarray(attackedImageRestored).show()
+    Image.fromarray(attackedImageRestored).save("test1-marked-v2-restored.png")
