@@ -17,3 +17,41 @@ analisa:
 sub blok A, recovery bit disimpan di sub blok B
 sub blok A terdeteksi berubah, mengambil recoviry bit dari sub blok
 sub blok b ini terdeteksi berubah juga
+
+image source
+https://radiopaedia.org/cases/heterotopic-calcification-in-previous-rupture-of-the-radial-collateral-ligament-of-the-elbow?lang=gb
+https://radiopaedia.org/cases/os-subfibulare-12?lang=gb
+https://radiopaedia.org/cases/monostotic-melorheostosis-and-glass-shard?lang=gb
+
+Processing test1.png
+time elapse: 7008756000
+Processing test2.png
+time elapse: 10811318000
+Processing test3.png
+time elapse: 17115903000
+Processing test4.png
+time elapse: 21985806000
+Processing test5.png
+time elapse: 22000286000
+
+Processing test1.png
+time elapse: 6995877000
+Processing test2.png
+time elapse: 10600100000
+Processing test3.png
+time elapse: 16885507000
+Processing test4.png
+time elapse: 21638614000
+Processing test5.png
+time elapse: 22056414000
+
+image name: test1.png
+nilai PSNR: 44.15879040783885
+image name: test2.png
+nilai PSNR: 44.39447382765398
+image name: test3.png
+nilai PSNR: 44.66546244300566
+image name: test4.png
+nilai PSNR: 44.20810978835089
+image name: test5.png
+nilai PSNR: 44.19777365350558

@@ -1,8 +1,9 @@
-from PIL import Image
+from PIL import Image, ImageDraw
 import numpy as np
 import random
 import math
-import scipy
+import time
+from skimage.metrics import structural_similarity as ssim
 
 ARNOLD_MAP_N = 10
 
@@ -198,7 +199,6 @@ def extractWatermarkAndRestore(img):
     watermarkRes = np.zeros(size, dtype=bool)
     imgRes = np.zeros(subBlock.shape, dtype=np.uint8)
     tamperZone = np.zeros(subBlock.shape, dtype=np.uint8)
-    tamperCoincidence = 0
     for y, _ in enumerate(subBlock):
         for x, _ in enumerate(subBlock[y]):
             tmpmap = arnoldMap(x, y, size[1], size[0], ARNOLD_MAP_N)
@@ -210,36 +210,84 @@ def extractWatermarkAndRestore(img):
                 watermarkData, salt)
             result = authenticationBits == extractedAuthenticationBits
             imgRes[y, x] = subBlock[y, x]
-            # if result == False:
-            #     tmpmap = reverseArnoldMap(x, y, size[1], size[0], ARNOLD_MAP_N)
-            #     salt = x + y
-            #     imgRes[y, x] = doRestore(
-            #         subBlock[y, x], subBlock[tmpmap[1], tmpmap[0]], salt)
-            watermarkRes[y, x] = result
-    for y, _ in enumerate(watermarkRes):
-        for x, _ in enumerate(watermarkRes[y]):
-            if watermarkRes[y, x] == False:
+            if result == False:
                 tamperZone[y, x] = tamperZone[y, x] + 255
                 tmpmap = reverseArnoldMap(x, y, size[1], size[0], ARNOLD_MAP_N)
-                if watermarkRes[tmpmap[0], tmpmap[1]] == False:
-                    tamperCoincidence = tamperCoincidence + 1
                 salt = x + y
                 imgRes[y, x] = doRestore(
                     subBlock[y, x], subBlock[tmpmap[1], tmpmap[0]], salt)
-    print(tamperCoincidence)
-    print(np.unique(watermarkRes, return_counts=True))
+            watermarkRes[y, x] = result
     return watermarkRes, mergeSubBlock(imgRes), mergeSubBlock(tamperZone)
 
 
+def copyPasteAttack(img, size, position, targetPosition):
+    copy = np.zeros(size, dtype=np.uint8)
+    copy = img[position[0]:position[0]+size[0],
+               position[1]:position[1]+size[1]]
+    img[targetPosition[0]:targetPosition[0]+size[0],
+        targetPosition[1]:targetPosition[1]+size[1]] = copy
+    return img
+
+
+def removeAttack(img, size, position):
+    img[position[0]:position[0]+size[0], position[1]:position[1]+size[1]] = 0
+    return img
+
+
+def addTextAttack(img, text, position):
+    img = Image.fromarray(img)
+    I1 = ImageDraw.Draw(img)
+    I1.text(position, text, fill=255, stroke_fill=0,
+            stroke_width=1, font_size=20)
+    return np.array(img).astype(dtype=np.uint8)
+
+
+def processImage(imgName):
+    originalImage = readImage("image/original/" + imgName)
+    watermarkedImage = embedWatermark(originalImage)
+    Image.fromarray(watermarkedImage).save("image/embedded/" + imgName)
+
+
 if __name__ == "__main__":
-    # originalImage = readImage("test1-marked.png")
-    # watermarkedImage = embedWatermark(originalImage)
-    # Image.fromarray(watermarkedImage).save("test1-marked-v2-embedded.png")
+    imgNames = ["test1.png", "test2.png", "test3.png", "test4.png", "test5.png"]
+    # for imgName in imgNames:
+    #     startTime = time.time_ns()
+    #     print("Processing " + imgName)
+    #     processImage(imgName)
+    #     print("time elapse: " + str(time.time_ns() - startTime))
+
+    # for imgName in imgNames:
+    #     originalImage = readImage("image/original/" + imgName)
+    #     watermarkedImage = readImage("image/embedded/" + imgName)
+    #     print("image name: " + imgName)
+    #     print("nilai PSNR: " + str(psnr(originalImage, watermarkedImage)))
+
     # watermarkedImage = readImage("test1-marked-v2-embedded.png")
     # print("nilai PSNR: " + str(psnr(originalImage, watermarkedImage)))
+    # similarity = ssim(originalImage, watermarkedImage, multichannel=True)
+    # print(similarity)
     # authRes, imgRes = extractWatermarkAndRestore(watermarkedImage)
-    attackedImage = readImage("test1-marked-v2-embedded-attacked.png")
-    authRes, attackedImageRestored, tamperZone = extractWatermarkAndRestore(attackedImage)
-    Image.fromarray(tamperZone).show()
+    # attackedImage = readImage("test1-marked-v2-embedded-attacked.png")
+    # authRes, attackedImageRestored, tamperZone = extractWatermarkAndRestore(attackedImage)
+    # Image.fromarray(tamperZone).show()
     # Image.fromarray(attackedImageRestored).show()
-    Image.fromarray(attackedImageRestored).save("test1-marked-v2-restored.png")
+    # Image.fromarray(attackedIxmageRestored).save("test1-marked-v2-restored.png")
+    # attacked = copyPasteAttack(watermarkedImage, (100, 100), (200, 200), (300, 300))
+    # attacked = removeAttack(watermarkedImage, (100, 100), (300, 300))
+    # Image.fromarray(attacked).save("test1-marked-v2-embedded-attacked.png")
+
+    # jpg to png
+    # originalImage = readImage(
+    #     "image/original/monostotic-melorheostosis-and-glass-shard-2.jpeg")
+    # print(originalImage.shape)
+    # Image.fromarray(originalImage).crop([0, 0, originalImage.shape[1], originalImage.shape[0]+1]).save(
+    #     "image/original/monostotic-melorheostosis-and-glass-shard-2.png")
+    # originalImage = readImage(
+    #     "image/original/monostotic-melorheostosis-and-glass-shard.jpeg")
+    # print(originalImage.shape)
+    # Image.fromarray(originalImage).crop([0, 0, originalImage.shape[1], originalImage.shape[0]+1]).save(
+    #     "image/original/monostotic-melorheostosis-and-glass-shard.png")
+    # originalImage = readImage("image/original/heterotopic-calcification-in-previous-rupture-of-the-radial-collateral-ligament-of-the-elbow-2.jpeg")
+    # Image.fromarray(originalImage).save("image/original/heterotopic-calcification-in-previous-rupture-of-the-radial-collateral-ligament-of-the-elbow-2.png")
+    # originalImage = readImage("image/original/heterotopic-calcification-in-previous-rupture-of-the-radial-collateral-ligament-of-the-elbow.jpeg")
+    # Image.fromarray(originalImage).save("image/original/heterotopic-calcification-in-previous-rupture-of-the-radial-collateral-ligament-of-the-elbow.png")
