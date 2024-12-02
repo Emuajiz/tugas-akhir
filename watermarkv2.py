@@ -265,6 +265,10 @@ def addTextAttack(img, text, position, font_size):
             stroke_width=1, font_size=font_size)
     return np.array(img).astype(dtype=np.uint8)
 
+def squareImage(img, size, position):
+    img[position[0]:position[0]+size[0], position[1]:position[1]+size[1]] = 0
+    return img
+
 
 def processImage(imgName):
     originalImage = readImage("image/original/" + imgName)
@@ -611,17 +615,17 @@ if __name__ == "__main__":
     #     print("nilai SSIM restored: " + str(similarity))
 
     # psnr and ssim calculation for copy paste attack 50% of image
-    for imgName in imgNames:
-        print("Processing " + imgName)
-        originalImage = readImage("image/original/" + imgName)
-        attackedImage = readImage("image/attacked/copy-paste-50/" + imgName)
-        restoredImage = readImage("image/restored/copy-paste-50/" + imgName)
-        print("nilai PSNR: " + str(psnr(originalImage, attackedImage)))
-        similarity = ssim(originalImage, attackedImage, multichannel=True)
-        print("nilai SSIM: " + str(similarity))
-        print("nilai PSNR restored: " + str(psnr(originalImage, restoredImage)))
-        similarity = ssim(originalImage, restoredImage, multichannel=True)
-        print("nilai SSIM restored: " + str(similarity))
+    # for imgName in imgNames:
+    #     print("Processing " + imgName)
+    #     originalImage = readImage("image/original/" + imgName)
+    #     attackedImage = readImage("image/attacked/copy-paste-50/" + imgName)
+    #     restoredImage = readImage("image/restored/copy-paste-50/" + imgName)
+    #     print("nilai PSNR: " + str(psnr(originalImage, attackedImage)))
+    #     similarity = ssim(originalImage, attackedImage, multichannel=True)
+    #     print("nilai SSIM: " + str(similarity))
+    #     print("nilai PSNR restored: " + str(psnr(originalImage, restoredImage)))
+    #     similarity = ssim(originalImage, restoredImage, multichannel=True)
+    #     print("nilai SSIM restored: " + str(similarity))
 
     # psnr and ssim calculation for remove attack 5% of image
     # for imgName in imgNames:
