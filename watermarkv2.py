@@ -211,7 +211,7 @@ def extractWatermarkAndRestore(img):
             result = authenticationBits == extractedAuthenticationBits
             imgRes[y, x] = subBlock[y, x]
             if result == False:
-                tamperZone[y, x] = tamperZone[y, x] + 255
+                tamperZone[y, x] = 255
                 tmpmap = reverseArnoldMap(x, y, size[1], size[0], ARNOLD_MAP_N)
                 salt = x + y
                 imgRes[y, x] = doRestore(
@@ -292,6 +292,40 @@ def preprocessImage(imgName):
 
     Image.fromarray(img).save(imgName + ".png")
 
+def processCopyPasteAttack(imgName, percentage):
+    watermarkedImage = readImage("image/embedded/" + imgName)
+    size = (watermarkedImage.shape[0] * percentage // 100, watermarkedImage.shape[1] * percentage // 100)
+    pos = (watermarkedImage.shape[0] // 2 - size[0], watermarkedImage.shape[1] // 2 - size[1])
+    targetPos = (watermarkedImage.shape[0] // 2, watermarkedImage.shape[1] // 2)
+    attackedImage = copyPasteAttack(watermarkedImage, size, pos, targetPos)
+    Image.fromarray(attackedImage).save("image/attacked/copy-paste-" + str(percentage) + "/" + imgName)
+
+def processRemoveAttack(imgName, percentage):
+    watermarkedImage = readImage("image/embedded/" + imgName)
+    size = (watermarkedImage.shape[0] * percentage // 100, watermarkedImage.shape[1] * percentage // 100)
+    targetPos = (watermarkedImage.shape[0] // 2, watermarkedImage.shape[1] // 2)
+    attackedImage = removeAttack(watermarkedImage, size, targetPos)
+    Image.fromarray(attackedImage).save("image/attacked/remove-" + str(percentage) + "/" + imgName)
+
+def processWhiteNoiseAttack(imgName, percentage):
+    watermarkedImage = readImage("image/embedded/" + imgName)
+    size = (watermarkedImage.shape[0] * percentage // 100, watermarkedImage.shape[1] * percentage // 100)
+    targetPos = (watermarkedImage.shape[0] // 2, watermarkedImage.shape[1] // 2)
+    attackedImage = whiteNoiseAttack(watermarkedImage, size, targetPos)
+    Image.fromarray(attackedImage).save("image/attacked/white-noise-" + str(percentage) + "/" + imgName)
+
+def processExtractWatermarkAndRestore(imgName, attackType):
+    attackedImage = readImage("image/attacked/" + attackType + "/" + imgName)
+    authRes, imgRes, tamperZone = extractWatermarkAndRestore(attackedImage)
+    print("Hasil pengecekan: " + str(np.all(authRes)))
+    Image.fromarray(tamperZone).save("image/tamper-zone/" + attackType + "/" + imgName)
+    Image.fromarray(imgRes).save("image/restored/" + attackType + "/" + imgName)
+
+def calculateDetectionRate(tamperZone):
+    maxTotalSum = tamperZone.shape[0] * tamperZone.shape[1] * 255
+    return np.sum(tamperZone) / maxTotalSum
+
+
 
 if __name__ == "__main__":
     imgNames = ["test1.png", "test2.png",
@@ -307,6 +341,8 @@ if __name__ == "__main__":
     #     originalImage = readImage("image/original/" + imgName)
     #     watermarkedImage = readImage("image/embedded/" + imgName)
     #     print("nilai PSNR: " + str(psnr(originalImage, watermarkedImage)))
+    #     similarity = ssim(originalImage, watermarkedImage, multichannel=True)
+    #     print("nilai SSIM: " + str(similarity))
 
     # watermark extract without attack
     # for imgName in imgNames:
@@ -322,118 +358,62 @@ if __name__ == "__main__":
     # copy paste attack 5% of image
     # for imgName in imgNames:
     #     print("Processing " + imgName)
-    #     watermarkedImage = readImage("image/embedded/" + imgName)
-    #     size = (watermarkedImage.shape[0] * 5 // 100, watermarkedImage.shape[1] * 5 // 100)
-    #     pos = (watermarkedImage.shape[0] // 2 - size[0], watermarkedImage.shape[1] // 2 - size[1])
-    #     targetPos = (watermarkedImage.shape[0] // 2, watermarkedImage.shape[1] // 2)
-    #     attackedImage = copyPasteAttack(watermarkedImage, size, pos, targetPos)
-    #     Image.fromarray(attackedImage).save("image/attacked/copy-paste-5/" + imgName)
+    #     processCopyPasteAttack(imgName, 5)
 
     # copy paste attack 10% of image
     # for imgName in imgNames:
     #     print("Processing " + imgName)
-    #     watermarkedImage = readImage("image/embedded/" + imgName)
-    #     size = (watermarkedImage.shape[0] * 10 // 100, watermarkedImage.shape[1] * 10 // 100)
-    #     pos = (watermarkedImage.shape[0] // 2 - size[0], watermarkedImage.shape[1] // 2 - size[1])
-    #     targetPos = (watermarkedImage.shape[0] // 2, watermarkedImage.shape[1] // 2)
-    #     attackedImage = copyPasteAttack(watermarkedImage, size, pos, targetPos)
-    #     Image.fromarray(attackedImage).save("image/attacked/copy-paste-10/" + imgName)
+    #     processCopyPasteAttack(imgName, 10)
 
     # copy paste attack 20% of image
     # for imgName in imgNames:
     #     print("Processing " + imgName)
-    #     watermarkedImage = readImage("image/embedded/" + imgName)
-    #     size = (watermarkedImage.shape[0] * 20 // 100, watermarkedImage.shape[1] * 20 // 100)
-    #     pos = (watermarkedImage.shape[0] // 2 - size[0], watermarkedImage.shape[1] // 2 - size[1])
-    #     targetPos = (watermarkedImage.shape[0] // 2, watermarkedImage.shape[1] // 2)
-    #     attackedImage = copyPasteAttack(watermarkedImage, size, pos, targetPos)
-    #     Image.fromarray(attackedImage).save("image/attacked/copy-paste-20/" + imgName)
+    #     processCopyPasteAttack(imgName, 20)
 
     # copy paste attack 50% of image
     # for imgName in imgNames:
     #     print("Processing " + imgName)
-    #     watermarkedImage = readImage("image/embedded/" + imgName)
-    #     size = (watermarkedImage.shape[0] * 50 // 100, watermarkedImage.shape[1] * 50 // 100)
-    #     pos = (watermarkedImage.shape[0] // 2 - size[0], watermarkedImage.shape[1] // 2 - size[1])
-    #     targetPos = (watermarkedImage.shape[0] // 2, watermarkedImage.shape[1] // 2)
-    #     attackedImage = copyPasteAttack(watermarkedImage, size, pos, targetPos)
-    #     Image.fromarray(attackedImage).save("image/attacked/copy-paste-50/" + imgName)
+    #     processCopyPasteAttack(imgName, 50)
 
     # remove attack 5% of image
     # for imgName in imgNames:
     #     print("Processing " + imgName)
-    #     watermarkedImage = readImage("image/embedded/" + imgName)
-    #     size = (watermarkedImage.shape[0] * 5 // 100, watermarkedImage.shape[1] * 5 // 100)
-    #     pos = (watermarkedImage.shape[0] // 2 - size[0], watermarkedImage.shape[1] // 2 - size[1])
-    #     targetPos = (watermarkedImage.shape[0] // 2, watermarkedImage.shape[1] // 2)
-    #     attackedImage = removeAttack(watermarkedImage, size, targetPos)
-    #     Image.fromarray(attackedImage).save("image/attacked/remove-5/" + imgName)
+    #     processRemoveAttack(imgName, 5)
 
     # remove attack 10% of image
     # for imgName in imgNames:
     #     print("Processing " + imgName)
-    #     watermarkedImage = readImage("image/embedded/" + imgName)
-    #     size = (watermarkedImage.shape[0] * 10 // 100, watermarkedImage.shape[1] * 10 // 100)
-    #     pos = (watermarkedImage.shape[0] // 2 - size[0], watermarkedImage.shape[1] // 2 - size[1])
-    #     targetPos = (watermarkedImage.shape[0] // 2, watermarkedImage.shape[1] // 2)
-    #     attackedImage = removeAttack(watermarkedImage, size, targetPos)
-    #     Image.fromarray(attackedImage).save("image/attacked/remove-10/" + imgName)
+    #     processRemoveAttack(imgName, 10)
 
     # remove attack 20% of image
     # for imgName in imgNames:
     #     print("Processing " + imgName)
-    #     watermarkedImage = readImage("image/embedded/" + imgName)
-    #     size = (watermarkedImage.shape[0] * 20 // 100, watermarkedImage.shape[1] * 20 // 100)
-    #     pos = (watermarkedImage.shape[0] // 2 - size[0], watermarkedImage.shape[1] // 2 - size[1])
-    #     targetPos = (watermarkedImage.shape[0] // 2, watermarkedImage.shape[1] // 2)
-    #     attackedImage = removeAttack(watermarkedImage, size, targetPos)
-    #     Image.fromarray(attackedImage).save("image/attacked/remove-20/" + imgName)
+    #     processRemoveAttack(imgName, 20)
 
     # remove attack 50% of image
     # for imgName in imgNames:
     #     print("Processing " + imgName)
-    #     watermarkedImage = readImage("image/embedded/" + imgName)
-    #     size = (watermarkedImage.shape[0] * 50 // 100, watermarkedImage.shape[1] * 50 // 100)
-    #     pos = (watermarkedImage.shape[0] // 2 - size[0], watermarkedImage.shape[1] // 2 - size[1])
-    #     targetPos = (watermarkedImage.shape[0] // 2, watermarkedImage.shape[1] // 2)
-    #     attackedImage = removeAttack(watermarkedImage, size, targetPos)
-    #     Image.fromarray(attackedImage).save("image/attacked/remove-50/" + imgName)
+    #     processRemoveAttack(imgName, 50)
 
     # white noise attack 5% of image
     # for imgName in imgNames:
     #     print("Processing " + imgName)
-    #     watermarkedImage = readImage("image/embedded/" + imgName)
-    #     size = (watermarkedImage.shape[0] * 5 // 100, watermarkedImage.shape[1] * 5 // 100)
-    #     pos = (watermarkedImage.shape[0] // 2 - size[0], watermarkedImage.shape[1] // 2 - size[1])
-    #     attackedImage = whiteNoiseAttack(watermarkedImage, size, pos)
-    #     Image.fromarray(attackedImage).save("image/attacked/white-noise-5/" + imgName)
+    #     processWhiteNoiseAttack(imgName, 5)
 
     # white noise attack 10% of image
     # for imgName in imgNames:
     #     print("Processing " + imgName)
-    #     watermarkedImage = readImage("image/embedded/" + imgName)
-    #     size = (watermarkedImage.shape[0] * 10 // 100, watermarkedImage.shape[1] * 10 // 100)
-    #     pos = (watermarkedImage.shape[0] // 2 - size[0], watermarkedImage.shape[1] // 2 - size[1])
-    #     attackedImage = whiteNoiseAttack(watermarkedImage, size, pos)
-    #     Image.fromarray(attackedImage).save("image/attacked/white-noise-10/" + imgName)
+    #     processWhiteNoiseAttack(imgName, 10)
 
     # white noise attack 20% of image
     # for imgName in imgNames:
     #     print("Processing " + imgName)
-    #     watermarkedImage = readImage("image/embedded/" + imgName)
-    #     size = (watermarkedImage.shape[0] * 20 // 100, watermarkedImage.shape[1] * 20 // 100)
-    #     pos = (watermarkedImage.shape[0] // 2 - size[0], watermarkedImage.shape[1] // 2 - size[1])
-    #     attackedImage = whiteNoiseAttack(watermarkedImage, size, pos)
-    #     Image.fromarray(attackedImage).save("image/attacked/white-noise-20/" + imgName)
+    #     processWhiteNoiseAttack(imgName, 20)
 
     # white noise attack 50% of image
     # for imgName in imgNames:
     #     print("Processing " + imgName)
-    #     watermarkedImage = readImage("image/embedded/" + imgName)
-    #     size = (watermarkedImage.shape[0] * 50 // 100, watermarkedImage.shape[1] * 50 // 100)
-    #     pos = (watermarkedImage.shape[0] // 2 - size[0], watermarkedImage.shape[1] // 2 - size[1])
-    #     attackedImage = whiteNoiseAttack(watermarkedImage, size, pos)
-    #     Image.fromarray(attackedImage).save("image/attacked/white-noise-50/" + imgName)
+    #     processWhiteNoiseAttack(imgName, 50)
 
     # add text attack
     # for imgName in imgNames:
@@ -448,132 +428,67 @@ if __name__ == "__main__":
     # watermark extract with copy paste attack 5% of image
     # for imgName in imgNames:
     #     print("Processing " + imgName)
-    #     attackedImage = readImage("image/attacked/copy-paste-5/" + imgName)
-    #     authRes, imgRes, tamperZone = extractWatermarkAndRestore(attackedImage)
-    #     print("Hasil pengecekan: " + str(np.all(authRes)))
-    #     Image.fromarray(tamperZone).save(
-    #         "image/tamper-zone/copy-paste-5/" + imgName)
-    #     Image.fromarray(imgRes).save("image/restored/copy-paste-5/" + imgName)
+    #     processExtractWatermarkAndRestore(imgName, "copy-paste-5")
 
     # watermark extract with copy paste attack 10% of image
     # for imgName in imgNames:
     #     print("Processing " + imgName)
-    #     attackedImage = readImage("image/attacked/copy-paste-10/" + imgName)
-    #     authRes, imgRes, tamperZone = extractWatermarkAndRestore(attackedImage)
-    #     print("Hasil pengecekan: " + str(np.all(authRes)))
-    #     Image.fromarray(tamperZone).save(
-    #         "image/tamper-zone/copy-paste-10/" + imgName)
-    #     Image.fromarray(imgRes).save("image/restored/copy-paste-10/" + imgName)
+    #     processExtractWatermarkAndRestore(imgName, "copy-paste-10")
 
     # watermark extract with copy paste attack 20% of image
     # for imgName in imgNames:
     #     print("Processing " + imgName)
-    #     attackedImage = readImage("image/attacked/copy-paste-20/" + imgName)
-    #     authRes, imgRes, tamperZone = extractWatermarkAndRestore(attackedImage)
-    #     print("Hasil pengecekan: " + str(np.all(authRes)))
-    #     Image.fromarray(tamperZone).save(
-    #         "image/tamper-zone/copy-paste-20/" + imgName)
-    #     Image.fromarray(imgRes).save("image/restored/copy-paste-20/" + imgName)
+    #     processExtractWatermarkAndRestore(imgName, "copy-paste-20")
 
     # watermark extract with copy paste attack 50% of image
     # for imgName in imgNames:
     #     print("Processing " + imgName)
-    #     attackedImage = readImage("image/attacked/copy-paste-50/" + imgName)
-    #     authRes, imgRes, tamperZone = extractWatermarkAndRestore(attackedImage)
-    #     print("Hasil pengecekan: " + str(np.all(authRes)))
-    #     Image.fromarray(tamperZone).save(
-    #         "image/tamper-zone/copy-paste-50/" + imgName)
-    #     Image.fromarray(imgRes).save("image/restored/copy-paste-50/" + imgName)
+    #     processExtractWatermarkAndRestore(imgName, "copy-paste-50")
 
     # watermark extract with remove attack 5% of image
     # for imgName in imgNames:
     #     print("Processing " + imgName)
-    #     attackedImage = readImage("image/attacked/remove-5/" + imgName)
-    #     authRes, imgRes, tamperZone = extractWatermarkAndRestore(attackedImage)
-    #     print("Hasil pengecekan: " + str(np.all(authRes)))
-    #     Image.fromarray(tamperZone).save(
-    #         "image/tamper-zone/remove-5/" + imgName)
-    #     Image.fromarray(imgRes).save("image/restored/remove-5/" + imgName)
+    #     processExtractWatermarkAndRestore(imgName, "remove-5")
 
     # watermark extract with remove attack 10% of image
     # for imgName in imgNames:
     #     print("Processing " + imgName)
-    #     attackedImage = readImage("image/attacked/remove-10/" + imgName)
-    #     authRes, imgRes, tamperZone = extractWatermarkAndRestore(attackedImage)
-    #     print("Hasil pengecekan: " + str(np.all(authRes)))
-    #     Image.fromarray(tamperZone).save(
-    #         "image/tamper-zone/remove-10/" + imgName)
-    #     Image.fromarray(imgRes).save("image/restored/remove-10/" + imgName)
+    #     processExtractWatermarkAndRestore(imgName, "remove-10")
 
     # watermark extract with remove attack 20% of image
     # for imgName in imgNames:
     #     print("Processing " + imgName)
-    #     attackedImage = readImage("image/attacked/remove-20/" + imgName)
-    #     authRes, imgRes, tamperZone = extractWatermarkAndRestore(attackedImage)
-    #     print("Hasil pengecekan: " + str(np.all(authRes)))
-    #     Image.fromarray(tamperZone).save(
-    #         "image/tamper-zone/remove-20/" + imgName)
-    #     Image.fromarray(imgRes).save("image/restored/remove-20/" + imgName)
+    #     processExtractWatermarkAndRestore(imgName, "remove-20")
 
     # watermark extract with remove attack 50% of image
     # for imgName in imgNames:
     #     print("Processing " + imgName)
-    #     attackedImage = readImage("image/attacked/remove-50/" + imgName)
-    #     authRes, imgRes, tamperZone = extractWatermarkAndRestore(attackedImage)
-    #     print("Hasil pengecekan: " + str(np.all(authRes)))
-    #     Image.fromarray(tamperZone).save(
-    #         "image/tamper-zone/remove-50/" + imgName)
-    #     Image.fromarray(imgRes).save("image/restored/remove-50/" + imgName)
+    #     processExtractWatermarkAndRestore(imgName, "remove-50")
 
     # watermark extract with white noise attack 5% of image
     # for imgName in imgNames:
     #     print("Processing " + imgName)
-    #     attackedImage = readImage("image/attacked/white-noise-5/" + imgName)
-    #     authRes, imgRes, tamperZone = extractWatermarkAndRestore(attackedImage)
-    #     print("Hasil pengecekan: " + str(np.all(authRes)))
-    #     Image.fromarray(tamperZone).save(
-    #         "image/tamper-zone/white-noise-5/" + imgName)
-    #     Image.fromarray(imgRes).save("image/restored/white-noise-5/" + imgName)
+    #     processExtractWatermarkAndRestore(imgName, "white-noise-5")
 
     # watermark extract with white noise attack 10% of image
     # for imgName in imgNames:
     #     print("Processing " + imgName)
-    #     attackedImage = readImage("image/attacked/white-noise-10/" + imgName)
-    #     authRes, imgRes, tamperZone = extractWatermarkAndRestore(attackedImage)
-    #     print("Hasil pengecekan: " + str(np.all(authRes)))
-    #     Image.fromarray(tamperZone).save(
-    #         "image/tamper-zone/white-noise-10/" + imgName)
-    #     Image.fromarray(imgRes).save("image/restored/white-noise-10/" + imgName)
+    #     processExtractWatermarkAndRestore(imgName, "white-noise-10")
 
     # watermark extract with white noise attack 20% of image
     # for imgName in imgNames:
     #     print("Processing " + imgName)
-    #     attackedImage = readImage("image/attacked/white-noise-20/" + imgName)
-    #     authRes, imgRes, tamperZone = extractWatermarkAndRestore(attackedImage)
-    #     print("Hasil pengecekan: " + str(np.all(authRes)))
-    #     Image.fromarray(tamperZone).save(
-    #         "image/tamper-zone/white-noise-20/" + imgName)
-    #     Image.fromarray(imgRes).save("image/restored/white-noise-20/" + imgName)
+    #     processExtractWatermarkAndRestore(imgName, "white-noise-20")
 
     # watermark extract with white noise attack 50% of image
     # for imgName in imgNames:
     #     print("Processing " + imgName)
-    #     attackedImage = readImage("image/attacked/white-noise-50/" + imgName)
-    #     authRes, imgRes, tamperZone = extractWatermarkAndRestore(attackedImage)
-    #     print("Hasil pengecekan: " + str(np.all(authRes)))
-    #     Image.fromarray(tamperZone).save(
-    #         "image/tamper-zone/white-noise-50/" + imgName)
-    #     Image.fromarray(imgRes).save("image/restored/white-noise-50/" + imgName)
+    #     processExtractWatermarkAndRestore(imgName, "white-noise-50")
 
     # watermark extract with add text attack
     # for imgName in imgNames:
     #     print("Processing " + imgName)
-    #     attackedImage = readImage("image/attacked/add-text/" + imgName)
-    #     authRes, imgRes, tamperZone = extractWatermarkAndRestore(attackedImage)
-    #     print("Hasil pengecekan: " + str(np.all(authRes)))
-    #     Image.fromarray(tamperZone).save(
-    #         "image/tamper-zone/add-text/" + imgName)
-    #     Image.fromarray(imgRes).save("image/restored/add-text/" + imgName)
+    #     processExtractWatermarkAndRestore(imgName, "add-text")
 
     # psnr and ssim calculation for copy paste attack 5% of image
     # for imgName in imgNames:
@@ -744,29 +659,11 @@ if __name__ == "__main__":
     #     similarity = ssim(originalImage, restoredImage, multichannel=True)
     #     print("nilai SSIM restored: " + str(similarity))
 
-    # attackedImage = readImage("image/attacked/copy-paste-5/test1.png")
-    # authRes, imgRes, tamperZone = extractWatermarkAndRestore(attackedImage)
-    # Image.fromarray(tamperZone).show()
-    # Image.fromarray(imgRes).show()
-
-    # attackedImage = readImage("image/attacked/copy-paste-5/test2.png")
-    # authRes, imgRes, tamperZone = extractWatermarkAndRestore(attackedImage)
-    # Image.fromarray(tamperZone).show()
-    # Image.fromarray(imgRes).show()
-
-    # watermarkedImage = readImage("test1-marked-v2-embedded.png")
-    # print("nilai PSNR: " + str(psnr(originalImage, watermarkedImage)))
-    # similarity = ssim(originalImage, watermarkedImage, multichannel=True)
-    # print(similarity)
-    # authRes, imgRes = extractWatermarkAndRestore(watermarkedImage)
-    # attackedImage = readImage("test1-marked-v2-embedded-attacked.png")
-    # authRes, attackedImageRestored, tamperZone = extractWatermarkAndRestore(attackedImage)
-    # Image.fromarray(tamperZone).show()
-    # Image.fromarray(attackedImageRestored).show()
-    # Image.fromarray(attackedIxmageRestored).save("test1-marked-v2-restored.png")
-    # attacked = copyPasteAttack(watermarkedImage, (100, 100), (200, 200), (300, 300))
-    # attacked = removeAttack(watermarkedImage, (100, 100), (300, 300))
-    # Image.fromarray(attacked).save("test1-marked-v2-embedded-attacked.png")
+    # for imgName in imgNames:
+    #     print("Processing " + imgName)
+    #     tamperZone = readImage("image/tamper-zone/not-attacked/" + imgName)
+    #     res = calculateDetectionRate(tamperZone)
+    #     print("Detection rate: {:.2f}%".format(res * 100))
 
     # jpg to png
     # preprocessImage(
