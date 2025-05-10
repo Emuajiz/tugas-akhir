@@ -167,6 +167,7 @@ def getWatermarkDataPerBlock(data: np.ndarray):
 
 def embedWatermark(img):
     subBlock = createSubBlock(img, 2)
+
     size = (subBlock.shape[0], subBlock.shape[1])
 
     res = np.zeros(subBlock.shape, dtype=np.uint8)
@@ -174,12 +175,16 @@ def embedWatermark(img):
         for x, _ in enumerate(subBlock[y]):
             tmpmap = arnoldMap(x, y, size[1], size[0], ARNOLD_MAP_N)
             salt = tmpmap[0] + tmpmap[1]
+
             recoveryBits = calculateRecoveryBit(
-                subBlock[tmpmap[1], tmpmap[0]])
+                subBlock[tmpmap[1], tmpmap[0]]) 
+            
             authenticationBits = calculateAuthenticationBit(
                 subBlock[y, x], salt)
+            
             watermarkData = calculateWatermarkData(
                 authenticationBits, recoveryBits, salt)
+            
             res[y, x] = embedWatermarkPerBlock(subBlock[y, x], watermarkData)
     return mergeSubBlock(res)
 
@@ -248,14 +253,35 @@ def copyPasteAttack(img, size, position, targetPosition):
     return img
 
 
+def actualCopyPasteArea(imgSize, size, targetPosition):
+    black = np.zeros(imgSize, dtype=np.uint8)
+    black[targetPosition[0]:targetPosition[0]+size[0],
+          targetPosition[1]:targetPosition[1]+size[1]] = 255
+    return black
+
+
 def removeAttack(img, size, position):
     img[position[0]:position[0]+size[0], position[1]:position[1]+size[1]] = 0
     return img
 
 
+def actualRemoveAttack(imgSize, size, position):
+    black = np.zeros(imgSize, dtype=np.uint8)
+    black[position[0]:position[0]+size[0],
+          position[1]:position[1]+size[1]] = 255
+    return black
+
+
 def whiteNoiseAttack(img, size, position):
     img[position[0]:position[0]+size[0], position[1]:position[1]+size[1]] = np.random.randint(0, 256, size)
     return img
+
+
+def actualWhiteNoiseAttack(imgSize, size, position):
+    black = np.zeros(imgSize, dtype=np.uint8)
+    black[position[0]:position[0]+size[0],
+          position[1]:position[1]+size[1]] = 255
+    return black
 
 
 def addTextAttack(img, text, position, font_size):
@@ -264,6 +290,15 @@ def addTextAttack(img, text, position, font_size):
     I1.text(position, text, fill=255, stroke_fill=0,
             stroke_width=1, font_size=font_size)
     return np.array(img).astype(dtype=np.uint8)
+
+
+def actualAddTextAttack(imgSize, text, position, font_size):
+    black = Image.fromarray(np.zeros(imgSize, dtype=np.uint8))
+    I1 = ImageDraw.Draw(black)
+    I1.text(position, text, fill=255, stroke_fill=0,
+            stroke_width=1, font_size=font_size)
+    return np.array(black).astype(dtype=np.uint8)
+
 
 def squareImage(img, size, position):
     img[position[0]:position[0]+size[0], position[1]:position[1]+size[1]] = 0
@@ -292,49 +327,92 @@ def preprocessImage(imgName):
 
     Image.fromarray(img).save(imgName + ".png")
 
+
 def processCopyPasteAttack(imgName, percentage):
     watermarkedImage = readImage("image/embedded/" + imgName)
-    size = (watermarkedImage.shape[0] * percentage // 100, watermarkedImage.shape[1] * percentage // 100)
-    pos = (watermarkedImage.shape[0] // 2 - size[0], watermarkedImage.shape[1] // 2 - size[1])
-    targetPos = (watermarkedImage.shape[0] // 2, watermarkedImage.shape[1] // 2)
+    size = (watermarkedImage.shape[0] * percentage //
+            100, watermarkedImage.shape[1] * percentage // 100)
+    pos = (watermarkedImage.shape[0] // 2 - size[0],
+           watermarkedImage.shape[1] // 2 - size[1])
+    targetPos = (watermarkedImage.shape[0] //
+                 2, watermarkedImage.shape[1] // 2)
     attackedImage = copyPasteAttack(watermarkedImage, size, pos, targetPos)
-    Image.fromarray(attackedImage).save("image/attacked/copy-paste-" + str(percentage) + "/" + imgName)
+    actualAttackArea = actualCopyPasteArea(
+        watermarkedImage.shape, size, targetPos)
+    Image.fromarray(attackedImage).save(
+        "image/attacked/copy-paste-" + str(percentage) + "/" + imgName)
+    Image.fromarray(actualAttackArea).save(
+        "image/actual-tamper-zone/copy-paste-" + str(percentage) + "/" + imgName)
+
 
 def processRemoveAttack(imgName, percentage):
     watermarkedImage = readImage("image/embedded/" + imgName)
-    size = (watermarkedImage.shape[0] * percentage // 100, watermarkedImage.shape[1] * percentage // 100)
-    targetPos = (watermarkedImage.shape[0] // 2, watermarkedImage.shape[1] // 2)
+    size = (watermarkedImage.shape[0] * percentage //
+            100, watermarkedImage.shape[1] * percentage // 100)
+    targetPos = (watermarkedImage.shape[0] //
+                 2, watermarkedImage.shape[1] // 2)
     attackedImage = removeAttack(watermarkedImage, size, targetPos)
-    Image.fromarray(attackedImage).save("image/attacked/remove-" + str(percentage) + "/" + imgName)
+    actualAttackArea = actualRemoveAttack(
+        watermarkedImage.shape, size, targetPos)
+    Image.fromarray(attackedImage).save(
+        "image/attacked/remove-" + str(percentage) + "/" + imgName)
+    Image.fromarray(actualAttackArea).save(
+        "image/actual-tamper-zone/remove-" + str(percentage) + "/" + imgName)
+
 
 def processWhiteNoiseAttack(imgName, percentage):
     watermarkedImage = readImage("image/embedded/" + imgName)
-    size = (watermarkedImage.shape[0] * percentage // 100, watermarkedImage.shape[1] * percentage // 100)
-    targetPos = (watermarkedImage.shape[0] // 2, watermarkedImage.shape[1] // 2)
+    size = (watermarkedImage.shape[0] * percentage //
+            100, watermarkedImage.shape[1] * percentage // 100)
+    targetPos = (watermarkedImage.shape[0] //
+                 2, watermarkedImage.shape[1] // 2)
     attackedImage = whiteNoiseAttack(watermarkedImage, size, targetPos)
-    Image.fromarray(attackedImage).save("image/attacked/white-noise-" + str(percentage) + "/" + imgName)
+    actualAttackArea = actualWhiteNoiseAttack(
+        watermarkedImage.shape, size, targetPos)
+    Image.fromarray(attackedImage).save(
+        "image/attacked/white-noise-" + str(percentage) + "/" + imgName)
+    Image.fromarray(actualAttackArea).save(
+        "image/actual-tamper-zone/white-noise-" + str(percentage) + "/" + imgName)
+
 
 def processExtractWatermarkAndRestore(imgName, attackType):
     attackedImage = readImage("image/attacked/" + attackType + "/" + imgName)
     authRes, imgRes, tamperZone = extractWatermarkAndRestore(attackedImage)
     print("Hasil pengecekan: " + str(np.all(authRes)))
-    Image.fromarray(tamperZone).save("image/tamper-zone/" + attackType + "/" + imgName)
-    Image.fromarray(imgRes).save("image/restored/" + attackType + "/" + imgName)
+    Image.fromarray(tamperZone).save(
+        "image/tamper-zone/" + attackType + "/" + imgName)
+    Image.fromarray(imgRes).save(
+        "image/restored/" + attackType + "/" + imgName)
+
 
 def calculateDetectionRate(tamperZone):
     maxTotalSum = tamperZone.shape[0] * tamperZone.shape[1] * 255
     return np.sum(tamperZone) / maxTotalSum
 
 
+def processSimilarityMetric(imgName, attackType):
+    originalImage = readImage("image/original/" + imgName)
+    attackedImage = readImage("image/attacked/" + attackType + "/" + imgName)
+    restoredImage = readImage("image/restored/" + attackType + "/" + imgName)
+    tamperZone = readImage("image/tamper-zone/" + attackType + "/" + imgName)
+    print("nilai PSNR: " + str(psnr(originalImage, attackedImage)))
+    similarity = ssim(originalImage, attackedImage, multichannel=True)
+    print("nilai SSIM: " + str(similarity))
+    detectionRate = calculateDetectionRate(tamperZone)
+    print("Detection rate: {:.2f}%".format((1-detectionRate) * 100))
+    print("nilai PSNR restored: " + str(psnr(originalImage, restoredImage)))
+    similarity = ssim(originalImage, restoredImage, multichannel=True)
+    print("nilai SSIM restored: " + str(similarity))
+
 
 if __name__ == "__main__":
-    imgNames = ["test1.png", "test2.png",
-                "test3.png", "test4.png", "test5.png"]
-    # for imgName in imgNames:
-    #     print("Processing " + imgName)
-    #     startTime = time.time_ns()
-    #     processImage(imgName)
-    #     print("time elapse: " + str(time.time_ns() - startTime))
+    # imgNames = ["test1.png", "test2.png",
+    #             "test3.png", "test4.png", "test5.png"]
+    imgNames = ["test1.png"]
+
+    for imgName in imgNames:
+        print("Processing " + imgName)
+        processImage(imgName)
 
     # for imgName in imgNames:
     #     print("Processing " + imgName)
@@ -420,10 +498,17 @@ if __name__ == "__main__":
     #     print("Processing " + imgName)
     #     watermarkedImage = readImage("image/embedded/" + imgName)
     #     font_size = np.min(watermarkedImage.shape) // 10
-    #     attackedImage = addTextAttack(watermarkedImage, "Attacked", (
-    #         watermarkedImage.shape[1] // 2, watermarkedImage.shape[0] // 2), font_size)
+    #     position = (watermarkedImage.shape[1] //
+    #                 2, watermarkedImage.shape[0] // 2)
+    #     text = "Attacked"
+    #     attackedImage = addTextAttack(
+    #         watermarkedImage, text, position, font_size)
+    #     actualAttackArea = actualAddTextAttack(
+    #         watermarkedImage.shape, text, position, font_size)
     #     Image.fromarray(attackedImage).save(
     #         "image/attacked/add-text/" + imgName)
+    #     Image.fromarray(actualAttackArea).save(
+    #         "image/actual-tamper-zone/add-text/" + imgName)
 
     # watermark extract with copy paste attack 5% of image
     # for imgName in imgNames:
@@ -493,177 +578,67 @@ if __name__ == "__main__":
     # psnr and ssim calculation for copy paste attack 5% of image
     # for imgName in imgNames:
     #     print("Processing " + imgName)
-    #     originalImage = readImage("image/original/" + imgName)
-    #     attackedImage = readImage("image/attacked/copy-paste-5/" + imgName)
-    #     restoredImage = readImage("image/restored/copy-paste-5/" + imgName)
-    #     print("nilai PSNR: " + str(psnr(originalImage, attackedImage)))
-    #     similarity = ssim(originalImage, attackedImage, multichannel=True)
-    #     print("nilai SSIM: " + str(similarity))
-    #     print("nilai PSNR restored: " + str(psnr(originalImage, restoredImage)))
-    #     similarity = ssim(originalImage, restoredImage, multichannel=True)
-    #     print("nilai SSIM restored: " + str(similarity))
+    #     processSimilarityMetric(imgName, "copy-paste-5")
 
     # psnr and ssim calculation for copy paste attack 10% of image
     # for imgName in imgNames:
     #     print("Processing " + imgName)
-    #     originalImage = readImage("image/original/" + imgName)
-    #     attackedImage = readImage("image/attacked/copy-paste-10/" + imgName)
-    #     restoredImage = readImage("image/restored/copy-paste-10/" + imgName)
-    #     print("nilai PSNR: " + str(psnr(originalImage, attackedImage)))
-    #     similarity = ssim(originalImage, attackedImage, multichannel=True)
-    #     print("nilai SSIM: " + str(similarity))
-    #     print("nilai PSNR restored: " + str(psnr(originalImage, restoredImage)))
-    #     similarity = ssim(originalImage, restoredImage, multichannel=True)
-    #     print("nilai SSIM restored: " + str(similarity))
+    #     processSimilarityMetric(imgName, "copy-paste-10")
 
     # psnr and ssim calculation for copy paste attack 20% of image
     # for imgName in imgNames:
     #     print("Processing " + imgName)
-    #     originalImage = readImage("image/original/" + imgName)
-    #     attackedImage = readImage("image/attacked/copy-paste-20/" + imgName)
-    #     restoredImage = readImage("image/restored/copy-paste-20/" + imgName)
-    #     print("nilai PSNR: " + str(psnr(originalImage, attackedImage)))
-    #     similarity = ssim(originalImage, attackedImage, multichannel=True)
-    #     print("nilai SSIM: " + str(similarity))
-    #     print("nilai PSNR restored: " + str(psnr(originalImage, restoredImage)))
-    #     similarity = ssim(originalImage, restoredImage, multichannel=True)
-    #     print("nilai SSIM restored: " + str(similarity))
+    #     processSimilarityMetric(imgName, "copy-paste-20")
 
     # psnr and ssim calculation for copy paste attack 50% of image
     # for imgName in imgNames:
     #     print("Processing " + imgName)
-    #     originalImage = readImage("image/original/" + imgName)
-    #     attackedImage = readImage("image/attacked/copy-paste-50/" + imgName)
-    #     restoredImage = readImage("image/restored/copy-paste-50/" + imgName)
-    #     print("nilai PSNR: " + str(psnr(originalImage, attackedImage)))
-    #     similarity = ssim(originalImage, attackedImage, multichannel=True)
-    #     print("nilai SSIM: " + str(similarity))
-    #     print("nilai PSNR restored: " + str(psnr(originalImage, restoredImage)))
-    #     similarity = ssim(originalImage, restoredImage, multichannel=True)
-    #     print("nilai SSIM restored: " + str(similarity))
+    #     processSimilarityMetric(imgName, "copy-paste-50")
 
     # psnr and ssim calculation for remove attack 5% of image
     # for imgName in imgNames:
     #     print("Processing " + imgName)
-    #     originalImage = readImage("image/original/" + imgName)
-    #     attackedImage = readImage("image/attacked/remove-5/" + imgName)
-    #     restoredImage = readImage("image/restored/remove-5/" + imgName)
-    #     print("nilai PSNR: " + str(psnr(originalImage, attackedImage)))
-    #     similarity = ssim(originalImage, attackedImage, multichannel=True)
-    #     print("nilai SSIM: " + str(similarity))
-    #     print("nilai PSNR restored: " + str(psnr(originalImage, restoredImage)))
-    #     similarity = ssim(originalImage, restoredImage, multichannel=True)
-    #     print("nilai SSIM restored: " + str(similarity))
+    #     processSimilarityMetric(imgName, "remove-5")
 
     # psnr and ssim calculation for remove attack 10% of image
     # for imgName in imgNames:
     #     print("Processing " + imgName)
-    #     originalImage = readImage("image/original/" + imgName)
-    #     attackedImage = readImage("image/attacked/remove-10/" + imgName)
-    #     restoredImage = readImage("image/restored/remove-10/" + imgName)
-    #     print("nilai PSNR: " + str(psnr(originalImage, attackedImage)))
-    #     similarity = ssim(originalImage, attackedImage, multichannel=True)
-    #     print("nilai SSIM: " + str(similarity))
-    #     print("nilai PSNR restored: " + str(psnr(originalImage, restoredImage)))
-    #     similarity = ssim(originalImage, restoredImage, multichannel=True)
-    #     print("nilai SSIM restored: " + str(similarity))
+    #     processSimilarityMetric(imgName, "remove-10")
 
     # psnr and ssim calculation for remove attack 20% of image
     # for imgName in imgNames:
     #     print("Processing " + imgName)
-    #     originalImage = readImage("image/original/" + imgName)
-    #     attackedImage = readImage("image/attacked/remove-20/" + imgName)
-    #     restoredImage = readImage("image/restored/remove-20/" + imgName)
-    #     print("nilai PSNR: " + str(psnr(originalImage, attackedImage)))
-    #     similarity = ssim(originalImage, attackedImage, multichannel=True)
-    #     print("nilai SSIM: " + str(similarity))
-    #     print("nilai PSNR restored: " + str(psnr(originalImage, restoredImage)))
-    #     similarity = ssim(originalImage, restoredImage, multichannel=True)
-    #     print("nilai SSIM restored: " + str(similarity))
+    #     processSimilarityMetric(imgName, "remove-20")
 
     # psnr and ssim calculation for remove attack 50% of image
     # for imgName in imgNames:
     #     print("Processing " + imgName)
-    #     originalImage = readImage("image/original/" + imgName)
-    #     attackedImage = readImage("image/attacked/remove-50/" + imgName)
-    #     restoredImage = readImage("image/restored/remove-50/" + imgName)
-    #     print("nilai PSNR: " + str(psnr(originalImage, attackedImage)))
-    #     similarity = ssim(originalImage, attackedImage, multichannel=True)
-    #     print("nilai SSIM: " + str(similarity))
-    #     print("nilai PSNR restored: " + str(psnr(originalImage, restoredImage)))
-    #     similarity = ssim(originalImage, restoredImage, multichannel=True)
-    #     print("nilai SSIM restored: " + str(similarity))
+    #     processSimilarityMetric(imgName, "remove-50")
 
     # psnr and ssim calculation for white noise attack 5% of image
     # for imgName in imgNames:
     #     print("Processing " + imgName)
-    #     originalImage = readImage("image/original/" + imgName)
-    #     attackedImage = readImage("image/attacked/white-noise-5/" + imgName)
-    #     restoredImage = readImage("image/restored/white-noise-5/" + imgName)
-    #     print("nilai PSNR: " + str(psnr(originalImage, attackedImage)))
-    #     similarity = ssim(originalImage, attackedImage, multichannel=True)
-    #     print("nilai SSIM: " + str(similarity))
-    #     print("nilai PSNR restored: " + str(psnr(originalImage, restoredImage)))
-    #     similarity = ssim(originalImage, restoredImage, multichannel=True)
-    #     print("nilai SSIM restored: " + str(similarity))
+    #     processSimilarityMetric(imgName, "white-noise-5")
 
     # psnr and ssim calculation for white noise attack 10% of image
     # for imgName in imgNames:
     #     print("Processing " + imgName)
-    #     originalImage = readImage("image/original/" + imgName)
-    #     attackedImage = readImage("image/attacked/white-noise-10/" + imgName)
-    #     restoredImage = readImage("image/restored/white-noise-10/" + imgName)
-    #     print("nilai PSNR: " + str(psnr(originalImage, attackedImage)))
-    #     similarity = ssim(originalImage, attackedImage, multichannel=True)
-    #     print("nilai SSIM: " + str(similarity))
-    #     print("nilai PSNR restored: " + str(psnr(originalImage, restoredImage)))
-    #     similarity = ssim(originalImage, restoredImage, multichannel=True)
-    #     print("nilai SSIM restored: " + str(similarity))
+    #     processSimilarityMetric(imgName, "white-noise-10")
 
     # psnr and ssim calculation for white noise attack 20% of image
     # for imgName in imgNames:
     #     print("Processing " + imgName)
-    #     originalImage = readImage("image/original/" + imgName)
-    #     attackedImage = readImage("image/attacked/white-noise-20/" + imgName)
-    #     restoredImage = readImage("image/restored/white-noise-20/" + imgName)
-    #     print("nilai PSNR: " + str(psnr(originalImage, attackedImage)))
-    #     similarity = ssim(originalImage, attackedImage, multichannel=True)
-    #     print("nilai SSIM: " + str(similarity))
-    #     print("nilai PSNR restored: " + str(psnr(originalImage, restoredImage)))
-    #     similarity = ssim(originalImage, restoredImage, multichannel=True)
-    #     print("nilai SSIM restored: " + str(similarity))
+    #     processSimilarityMetric(imgName, "white-noise-20")
 
     # psnr and ssim calculation for white noise attack 50% of image
     # for imgName in imgNames:
     #     print("Processing " + imgName)
-    #     originalImage = readImage("image/original/" + imgName)
-    #     attackedImage = readImage("image/attacked/white-noise-50/" + imgName)
-    #     restoredImage = readImage("image/restored/white-noise-50/" + imgName)
-    #     print("nilai PSNR: " + str(psnr(originalImage, attackedImage)))
-    #     similarity = ssim(originalImage, attackedImage, multichannel=True)
-    #     print("nilai SSIM: " + str(similarity))
-    #     print("nilai PSNR restored: " + str(psnr(originalImage, restoredImage)))
-    #     similarity = ssim(originalImage, restoredImage, multichannel=True)
-    #     print("nilai SSIM restored: " + str(similarity))
+    #     processSimilarityMetric(imgName, "white-noise-50")
 
     # PSNR and SSIM calculation for add text attack
     # for imgName in imgNames:
     #     print("Processing " + imgName)
-    #     originalImage = readImage("image/original/" + imgName)
-    #     attackedImage = readImage("image/attacked/add-text/" + imgName)
-    #     restoredImage = readImage("image/restored/add-text/" + imgName)
-    #     print("nilai PSNR: " + str(psnr(originalImage, attackedImage)))
-    #     similarity = ssim(originalImage, attackedImage, multichannel=True)
-    #     print("nilai SSIM: " + str(similarity))
-    #     print("nilai PSNR restored: " + str(psnr(originalImage, restoredImage)))
-    #     similarity = ssim(originalImage, restoredImage, multichannel=True)
-    #     print("nilai SSIM restored: " + str(similarity))
-
-    # for imgName in imgNames:
-    #     print("Processing " + imgName)
-    #     tamperZone = readImage("image/tamper-zone/not-attacked/" + imgName)
-    #     res = calculateDetectionRate(tamperZone)
-    #     print("Detection rate: {:.2f}%".format(res * 100))
+    #     processSimilarityMetric(imgName, "add-text")
 
     # jpg to png
     # preprocessImage(
