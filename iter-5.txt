@@ -1,0 +1,213 @@
+        "getWatermarkData": 5.315437316894531,
+        "getAuthenticationBit": 8.426111936569214,
+        "mergeResult": 0.641181230545044,
+        "mergeTamperZone": 0.643233060836792,
+        "looping": 27.227340698242188,
+        "loogingCount": 1012036,
+        "extractWatermark": 28.937216997146606
+    },
+    "name": "test4.png",
+    "validation": true
+}
+==========================
+Processing test5.png
+{
+    "time": {
+        "createSubBlock": 0.3755228519439697,
+        "arnoldMap": 0.8748834133148193,
+        "calculateAuthenticationBit": 10.604085206985474,
+        "getWatermarkData": 4.656688451766968,
+        "getAuthenticationBit": 7.420245409011841,
+        "mergeResult": 0.5643210411071777,
+        "mergeTamperZone": 0.565842866897583,
+        "looping": 24.848821878433228,
+        "loogingCount": 891136,
+        "extractWatermark": 26.35569405555725
+    },
+    "name": "test5.png",
+    "validation": true
+}
+==========================
+(venv) mohammadizzulhaq@Mohammads-Laptop tugas-akhir % clear
+(venv) mohammadizzulhaq@Mohammads-Laptop tugas-akhir % /Users/mohammadizzulhaq/Projects/tugas-akhir/venv/bin/python /Users/mohammadizzulhaq/Projects/tugas-akhir/watermarkv2.py
+Processing test1.png
+{
+    "time": {
+        "createSubBlock": 0.15412211418151855,
+        "calculateArnoldMap": 0.2549729347229004,
+        "calculateRecoveryBit": 1.2684123516082764,
+        "calculateAuthenticationBit": 3.260657787322998,
+        "calculateWatermarkData": 2.1958374977111816,
+        "embdedWatermark": 1.7290973663330078,
+        "mergeSubBlock": 0.16284489631652832,
+        "looping": 8.81216311454773,
+        "loogingCount": 262144,
+        "watermarking": 9.129223108291626
+    },
+    "name": "test1.png"
+}
+Total processing time: 9.27168583869934 seconds
+==========================
+Processing test2.png
+{
+    "time": {
+        "createSubBlock": 0.21336078643798828,
+        "calculateArnoldMap": 0.5166540145874023,
+        "calculateRecoveryBit": 2.487003803253174,
+        "calculateAuthenticationBit": 4.406396150588989,
+        "calculateWatermarkData": 4.297690391540527,
+        "embdedWatermark": 3.3819758892059326,
+        "mergeSubBlock": 0.3254871368408203,
+        "looping": 15.310256958007812,
+        "loogingCount": 518400,
+        "watermarking": 15.849339723587036
+    },
+    "name": "test2.png"
+}
+Total processing time: 16.15108609199524 seconds
+==========================
+Processing test3.png
+{
+    "time": {
+        "createSubBlock": 0.4735758304595947,
+        "calculateArnoldMap": 1.1360535621643066,
+        "calculateRecoveryBit": 5.666067123413086,
+        "calculateAuthenticationBit": 8.732130765914917,
+        "calculateWatermarkData": 9.485274076461792,
+        "embdedWatermark": 7.4241557121276855,
+        "mergeSubBlock": 0.7128770351409912,
+        "looping": 32.89795684814453,
+        "loogingCount": 1144900,
+        "watermarking": 34.085269927978516
+    },
+    "name": "test3.png"
+}
+Total processing time: 34.837648153305054 seconds
+==========================
+Processing test4.png
+{
+    "time": {
+        "createSubBlock": 0.4203310012817383,
+        "calculateArnoldMap": 1.0042228698730469,
+        "calculateRecoveryBit": 5.031728267669678,
+        "calculateAuthenticationBit": 11.11687707901001,
+        "calculateWatermarkData": 8.388187646865845,
+        "embdedWatermark": 6.590332508087158,
+        "mergeSubBlock": 0.6341218948364258,
+        "looping": 32.524065017700195,
+        "loogingCount": 1012036,
+        "watermarking": 33.57904100418091
+    },
+    "name": "test4.png"
+}
+Total processing time: 34.01233100891113 seconds
+==========================
+Processing test5.png
+{
+    "time": {
+        "createSubBlock": 0.3675351142883301,
+        "calculateArnoldMap": 0.8861923217773438,
+        "calculateRecoveryBit": 4.202439785003662,
+        "calculateAuthenticationBit": 10.619578838348389,
+        "calculateWatermarkData": 7.3911590576171875,
+        "embdedWatermark": 5.807109355926514,
+        "mergeSubBlock": 0.5577657222747803,
+        "looping": 29.255473136901855,
+        "loogingCount": 891136,
+        "watermarking": 30.18131113052368
+    },
+    "name": "test5.png"
+}
+Total processing time: 30.478052139282227 seconds
+==========================
+Processing test1.png
+{
+    "time": {
+        "createSubBlock": 0.10737109184265137,
+        "arnoldMap": 0.25327539443969727,
+        "calculateAuthenticationBit": 3.2811224460601807,
+        "getWatermarkData": 1.392958402633667,
+        "getAuthenticationBit": 2.2004237174987793,
+        "mergeResult": 0.16336989402770996,
+        "mergeTamperZone": 0.16305017471313477,
+        "looping": 7.514192819595337,
+        "loogingCount": 262144,
+        "extractWatermark": 7.948110103607178
+    },
+    "name": "test1.png",
+    "validation": true
+}
+==========================
+Processing test2.png
+{
+    "time": {
+        "createSubBlock": 0.21428203582763672,
+        "arnoldMap": 0.5083403587341309,
+        "calculateAuthenticationBit": 4.390544652938843,
+        "getWatermarkData": 2.6986289024353027,
+        "getAuthenticationBit": 4.311683177947998,
+        "mergeResult": 0.32318997383117676,
+        "mergeTamperZone": 0.3238651752471924,
+        "looping": 12.488233089447021,
+        "loogingCount": 518400,
+        "extractWatermark": 13.349941968917847
+    },
+    "name": "test2.png",
+    "validation": true
+}
+==========================
+Processing test3.png
+{
+    "time": {
+        "createSubBlock": 0.47583508491516113,
+        "arnoldMap": 1.1237096786499023,
+        "calculateAuthenticationBit": 8.743196725845337,
+        "getWatermarkData": 5.956930160522461,
+        "getAuthenticationBit": 9.531373500823975,
+        "mergeResult": 0.715322732925415,
+        "mergeTamperZone": 0.7543327808380127,
+        "looping": 26.549339294433594,
+        "loogingCount": 1144900,
+        "extractWatermark": 28.496272325515747
+    },
+    "name": "test3.png",
+    "validation": true
+}
+==========================
+Processing test4.png
+{
+    "time": {
+        "createSubBlock": 0.4192941188812256,
+        "arnoldMap": 0.9939191341400146,
+        "calculateAuthenticationBit": 11.0767502784729,
+        "getWatermarkData": 5.302169561386108,
+        "getAuthenticationBit": 8.430194854736328,
+        "mergeResult": 0.6333901882171631,
+        "mergeTamperZone": 0.6303286552429199,
+        "looping": 27.168184995651245,
+        "loogingCount": 1012036,
+        "extractWatermark": 28.852692127227783
+    },
+    "name": "test4.png",
+    "validation": true
+}
+==========================
+Processing test5.png
+{
+    "time": {
+        "createSubBlock": 0.3703899383544922,
+        "arnoldMap": 0.8765261173248291,
+        "calculateAuthenticationBit": 10.596115112304688,
+        "getWatermarkData": 4.6668701171875,
+        "getAuthenticationBit": 7.420740365982056,
+        "mergeResult": 0.5557351112365723,
+        "mergeTamperZone": 0.5568859577178955,
+        "looping": 24.839970111846924,
+        "loogingCount": 891136,
+        "extractWatermark": 26.32408595085144
+    },
+    "name": "test5.png",
+    "validation": true
+}
+==========================
+(venv) mohammadizzulhaq@Mohammads-Laptop tugas-akhir % 

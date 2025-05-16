@@ -4,6 +4,7 @@ import random
 import math
 import time
 from skimage.metrics import structural_similarity as ssim
+import json
 
 ARNOLD_MAP_N = 10
 
@@ -166,27 +167,75 @@ def getWatermarkDataPerBlock(data: np.ndarray):
 
 
 def embedWatermark(img):
+    createSubBlockStartTime = time.time()
     subBlock = createSubBlock(img, 2)
-
+    createSubBlockEndTime = time.time()
     size = (subBlock.shape[0], subBlock.shape[1])
 
+    calculateArnoldMapTime = 0
+    calculateRecoveryBitTime = 0
+    calculateAuthenticationBitTime = 0
+    calculateWatermarkDataTime = 0
+    embdedWatermarkTime = 0
+
     res = np.zeros(subBlock.shape, dtype=np.uint8)
+
+    loopingStartTime = time.time()
     for y, _ in enumerate(subBlock):
         for x, _ in enumerate(subBlock[y]):
+            calculateArnoldMapStartTime = time.time()
             tmpmap = arnoldMap(x, y, size[1], size[0], ARNOLD_MAP_N)
+            calculateArnoldMapEndTime = time.time()
+            calculateArnoldMapTime += calculateArnoldMapEndTime - calculateArnoldMapStartTime
+
             salt = tmpmap[0] + tmpmap[1]
 
+            calculateRecoveryBitStartTime = time.time()
             recoveryBits = calculateRecoveryBit(
-                subBlock[tmpmap[1], tmpmap[0]]) 
-            
+                subBlock[tmpmap[1], tmpmap[0]])
+            calculateRecoveryBitEndTime = time.time()
+            calculateRecoveryBitTime += calculateRecoveryBitEndTime - \
+                calculateRecoveryBitStartTime
+
+            calculateAuthenticationBitStartTime = time.time()
             authenticationBits = calculateAuthenticationBit(
                 subBlock[y, x], salt)
-            
+            calculateAuthenticationBitEndTime = time.time()
+            calculateAuthenticationBitTime += calculateAuthenticationBitEndTime - \
+                calculateAuthenticationBitStartTime
+
+            calculateWatermarkDataStartTime = time.time()
             watermarkData = calculateWatermarkData(
                 authenticationBits, recoveryBits, salt)
-            
+            calculateWatermarkDataEndTime = time.time()
+            calculateWatermarkDataTime += calculateWatermarkDataEndTime - \
+                calculateWatermarkDataStartTime
+
+            embdedWatermarkStartTime = time.time()
             res[y, x] = embedWatermarkPerBlock(subBlock[y, x], watermarkData)
-    return mergeSubBlock(res)
+            embdedWatermarkEndTime = time.time()
+            embdedWatermarkTime += embdedWatermarkEndTime - embdedWatermarkStartTime
+    loopingEndTime = time.time()
+
+    mergeSubBlockStartTime = time.time()
+    merged = mergeSubBlock(res)
+    mergeSubBlockEndTime = time.time()
+
+    metric = {
+        "time": {
+            "createSubBlock": createSubBlockEndTime - createSubBlockStartTime,
+            "calculateArnoldMap": calculateArnoldMapTime,
+            "calculateRecoveryBit": calculateRecoveryBitTime,
+            "calculateAuthenticationBit": calculateAuthenticationBitTime,
+            "calculateWatermarkData": calculateWatermarkDataTime,
+            "embdedWatermark": embdedWatermarkTime,
+            "mergeSubBlock": mergeSubBlockEndTime - mergeSubBlockStartTime,
+            "looping": loopingEndTime - loopingStartTime,
+            "loogingCount": subBlock.shape[0] * subBlock.shape[1]
+        }
+    }
+
+    return merged, metric
 
 
 def doRestore(data: np.ndarray, recoverData:  np.ndarray, salt: int):
@@ -199,20 +248,50 @@ def doRestore(data: np.ndarray, recoverData:  np.ndarray, salt: int):
 
 
 def extractWatermarkAndRestore(img):
+
+    createSubBlockStartTime = time.time()
     subBlock = createSubBlock(img, 2)
+    createSubBlockEndTime = time.time()
+
     size = (subBlock.shape[0], subBlock.shape[1])
     watermarkRes = np.zeros(size, dtype=bool)
     imgRes = np.zeros(subBlock.shape, dtype=np.uint8)
     tamperZone = np.zeros(subBlock.shape, dtype=np.uint8)
+
+    arnoldMapProsessTime = 0
+    calculateAuthenticationBitTime = 0
+    getWatermarkDataTime = 0
+    getAuthenticationBitTime = 0
+
+    loopingStartTime = time.time()
     for y, _ in enumerate(subBlock):
         for x, _ in enumerate(subBlock[y]):
+            arnoldMapStartTime = time.time()
             tmpmap = arnoldMap(x, y, size[1], size[0], ARNOLD_MAP_N)
+            arnoldMapEndTime = time.time()
+            arnoldMapProsessTime += arnoldMapEndTime - arnoldMapStartTime
+
             salt = tmpmap[0] + tmpmap[1]
+
+            calculateAuthenticationBitStartTime = time.time()
             authenticationBits = calculateAuthenticationBit(
                 subBlock[y, x], salt)
+            calculateAuthenticationBitEndTime = time.time()
+            calculateAuthenticationBitTime += calculateAuthenticationBitEndTime - \
+                calculateAuthenticationBitStartTime
+
+            getWatermarkDataStartTime = time.time()
             watermarkData = getWatermarkDataPerBlock(subBlock[y, x])
+            getWatermarkDataEndTime = time.time()
+            getWatermarkDataTime += getWatermarkDataEndTime - getWatermarkDataStartTime
+
+            getAuthenticationBitStartTime = time.time()
             extractedAuthenticationBits = getAuthenticationBit(
                 watermarkData, salt)
+            getAuthenticationBitEndTime = time.time()
+            getAuthenticationBitTime += getAuthenticationBitEndTime - \
+                getAuthenticationBitStartTime
+
             result = authenticationBits == extractedAuthenticationBits
             imgRes[y, x] = subBlock[y, x]
             if result == False:
@@ -222,7 +301,32 @@ def extractWatermarkAndRestore(img):
                 imgRes[y, x] = doRestore(
                     subBlock[y, x], subBlock[tmpmap[1], tmpmap[0]], salt)
             watermarkRes[y, x] = result
-    return watermarkRes, mergeSubBlock(imgRes), mergeSubBlock(tamperZone)
+    loopingEndTime = time.time()
+
+    mergeResultStartTime = time.time()
+    mergedRes = mergeSubBlock(imgRes)
+    mergeResultEndTime = time.time()
+
+    mergeTamperZoneStartTime = time.time()
+    mergedTamperZone = mergeSubBlock(tamperZone)
+    mergeTamperZoneEndTime = time.time()
+
+    metric = {
+        "time": {
+            "createSubBlock": createSubBlockEndTime - createSubBlockStartTime,
+            "arnoldMap": arnoldMapProsessTime,
+            "calculateAuthenticationBit": calculateAuthenticationBitTime,
+            "getWatermarkData": getWatermarkDataTime,
+            "getAuthenticationBit": getAuthenticationBitTime,
+            "mergeResult": mergeResultEndTime - mergeResultStartTime,
+            "mergeTamperZone": mergeTamperZoneEndTime - mergeTamperZoneStartTime,
+            "looping": loopingEndTime - loopingStartTime,
+            "loogingCount": subBlock.shape[0] * subBlock.shape[1]
+        }
+    }
+
+
+    return watermarkRes, mergedRes, mergedTamperZone, metric
 
 
 def detectionRate(img, originalImg):
@@ -273,7 +377,8 @@ def actualRemoveAttack(imgSize, size, position):
 
 
 def whiteNoiseAttack(img, size, position):
-    img[position[0]:position[0]+size[0], position[1]:position[1]+size[1]] = np.random.randint(0, 256, size)
+    img[position[0]:position[0]+size[0], position[1]
+        :position[1]+size[1]] = np.random.randint(0, 256, size)
     return img
 
 
@@ -307,7 +412,12 @@ def squareImage(img, size, position):
 
 def processImage(imgName):
     originalImage = readImage("image/original/" + imgName)
-    watermarkedImage = embedWatermark(originalImage)
+    watermarkingStartTime = time.time()
+    watermarkedImage, metric = embedWatermark(originalImage)
+    watermarkingEndTime = time.time()
+    metric["time"]["watermarking"] = watermarkingEndTime - watermarkingStartTime
+    metric["name"] = imgName
+    print(json.dumps(metric, indent=4))
     Image.fromarray(watermarkedImage).save("image/embedded/" + imgName)
 
 
@@ -406,13 +516,17 @@ def processSimilarityMetric(imgName, attackType):
 
 
 if __name__ == "__main__":
-    # imgNames = ["test1.png", "test2.png",
-    #             "test3.png", "test4.png", "test5.png"]
-    imgNames = ["test1.png"]
+    imgNames = ["test1.png", "test2.png",
+                "test3.png", "test4.png", "test5.png"]
+    # imgNames = ["test1.png"]
 
     for imgName in imgNames:
         print("Processing " + imgName)
+        startTime = time.time()
         processImage(imgName)
+        endTime = time.time()
+        print("Total processing time: " + str(endTime - startTime) + " seconds")
+        print("==========================")
 
     # for imgName in imgNames:
     #     print("Processing " + imgName)
@@ -423,15 +537,22 @@ if __name__ == "__main__":
     #     print("nilai SSIM: " + str(similarity))
 
     # watermark extract without attack
-    # for imgName in imgNames:
-    #     print("Processing " + imgName)
-    #     watermarkedImage = readImage("image/embedded/" + imgName)
-    #     originalImage = readImage("image/original/" + imgName)
-    #     authRes, imgRes, tamperZone = extractWatermarkAndRestore(watermarkedImage)
-    #     detectionRateRes = detectionRate(watermarkedImage, originalImage)
-    #     print("Hasil pengecekan: " + str(np.all(authRes)))
-    #     print("Detection rate: " + str(np.all(detectionRateRes)))
-    #     Image.fromarray(tamperZone).save("image/tamper-zone/not-attacked/" + imgName)
+    for imgName in imgNames:
+        print("Processing " + imgName)
+        watermarkedImage = readImage("image/embedded/" + imgName)
+        originalImage = readImage("image/original/" + imgName)
+        extractWatermarkStartTime = time.time()
+        authRes, imgRes, tamperZone, metric = extractWatermarkAndRestore(
+            watermarkedImage)
+        extractWatermarkEndTime = time.time()
+        metric["time"]["extractWatermark"] = extractWatermarkEndTime - \
+            extractWatermarkStartTime
+        metric["name"] = imgName
+        metric["validation"] = bool(np.all(authRes))
+        print(json.dumps(metric, indent=4))
+        Image.fromarray(tamperZone).save(
+            "image/tamper-zone/not-attacked/" + imgName)
+        print("==========================")
 
     # copy paste attack 5% of image
     # for imgName in imgNames:
